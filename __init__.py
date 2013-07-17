@@ -1,5 +1,6 @@
 from dm3_image_utils import load_image, save_image
-import Application
+
+from nion.swift import Application
 
 Application.app.import_export_manager.register_io(
     name="DM3",
