@@ -8,7 +8,7 @@ class DM3ImportExportHandler(ImportExportManager.ImportExportHandler):
         super(DM3ImportExportHandler, self).__init__("DigitalMicrograph 3", ["dm3"])
 
     def read_data(self, extension, f):
-        load_image(f)
+        return load_image(f)
 
     def can_write(self, data_item, extension):
         return len(data_item.spatial_shape) == 2
