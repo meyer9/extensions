@@ -58,7 +58,7 @@ def imagedatadict_to_ndarray(imdict):
         im = np.frombuffer(
             arr.raw_data,
             dtype=structarray_to_np_map[t])
-    print "Image has dmimagetype", imdict["DataType"], "numpy type is", im.dtype
+    # print "Image has dmimagetype", imdict["DataType"], "numpy type is", im.dtype
     assert dm_image_dtypes[imdict["DataType"]][1] == im.dtype
     assert imdict['PixelDepth'] == im.dtype.itemsize
     return im.reshape(imdict['Dimensions'][::-1])
@@ -84,6 +84,33 @@ def ndarray_to_imagedatadict(nparr):
     return ret
 
 
+import types
+def display_keys(tag, indent=None):
+    indent = indent if indent is not None else str()
+    if isinstance(tag, types.ListType) or isinstance(tag, types.TupleType):
+        for i, v in enumerate(tag):
+            logging.debug("%s %s:", indent, i)
+            display_keys(v, indent + "..")
+    elif isinstance(tag, types.DictType):
+        for k, v in tag.iteritems():
+            logging.debug("%s key: %s", indent, k)
+            display_keys(v, indent + "..")
+    elif isinstance(tag, types.BooleanType):
+        logging.debug("%s bool: %s", indent, tag)
+    elif isinstance(tag, types.IntType):
+        logging.debug("%s int: %s", indent, tag)
+    elif isinstance(tag, types.LongType):
+        logging.debug("%s long: %s", indent, tag)
+    elif isinstance(tag, types.FloatType):
+        logging.debug("%s float: %s", indent, tag)
+    elif isinstance(tag, types.StringType):
+        logging.debug("%s string: %s", indent, tag)
+    elif isinstance(tag, types.UnicodeType):
+        logging.debug("%s unicode: %s", indent, tag)
+    else:
+        logging.debug("%s %s: DATA", indent, type(tag))
+
+
 def load_image(file):
     """
     Loads the image from the file-like object or string file.
@@ -95,8 +122,18 @@ def load_image(file):
         with open(file, "rb") as f:
             return load_image(f)
     dmtag = parse_dm_header(file)
+    #display_keys(dmtag)
     img_index = -1
-    return imagedatadict_to_ndarray(dmtag['ImageList'][img_index]['ImageData'])
+    data = imagedatadict_to_ndarray(dmtag['ImageList'][img_index]['ImageData'])
+    calibrations = []
+    for dimension in dmtag['ImageList'][img_index]['ImageData']['Calibrations']['Dimension']:
+        calibrations.append((dimension['Origin'], dimension['Scale'], dimension['Units']))
+    title = dmtag['ImageList'][img_index]['Name']
+    properties = { "imported_properties": dmtag['ImageList'][img_index]['ImageTags'] }
+    voltage = dmtag['ImageList'][img_index]['ImageTags'].get('ImageScanned', dict()).get('EHT', dict())
+    if voltage:
+        properties["voltage"] = float(voltage)
+    return data, calibrations, title, properties
 
 
 def save_image(image, file):

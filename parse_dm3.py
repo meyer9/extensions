@@ -3,6 +3,10 @@ import array
 import StringIO
 import logging
 import re
+# mfm 2013-11-15 initial dm4 support
+# this should probably migrate into a class at some point.
+# No support for writing dm4 files, but shouldn't be hard - 
+# just need to make sure functions are symmetric
 # mfm 2013-05-21 do we need the numpy array stuff? The python array module
 # allows us to store arrays easily and efficiently. How do we deal
 # with arrays of complex data? We could use numpy arrays with custom dtypes
@@ -21,7 +25,10 @@ verbose = False
 # if we find data which matches this regex we return a
 # string instead of an array
 treat_as_string_names = ['.*Name']
-
+# we treat sizes separately to distinguish 32bit (dm3) and 64 bit (dm4)
+# these globals can get changed in parse_dm3_header
+version = 3
+size_type = "L"
 
 def get_from_file(f, stype):
     #print "reading", stype, "size", struct.calcsize(stype)
@@ -84,8 +91,8 @@ def parse_dm_header(f, outdata=None):
     # filesize is sizeondisk - 16. But we have 8 bytes of zero at the end of
     # the file.
     if outdata is not None:
-        version, file_size, endianness = 3, -1, 1
-        put_into_file(f, "> l l l", version, file_size, endianness)
+        ver, file_size, endianness = 3, -1, 1
+        put_into_file(f, "> l l l", ver, file_size, endianness)
         start = f.tell()
         parse_dm_tag_root(f, outdata)
         end = f.tell()
@@ -98,9 +105,18 @@ def parse_dm_header(f, outdata=None):
         enda, endb = 0, 0
         put_into_file(f, "> l l", enda, endb)
     else:
-        version, file_size, endianness = get_from_file(f, "> l l l")
-        assert(version == 3)
-        assert(endianness == 1)
+        ver = get_from_file(f, "> l")
+        assert ver in [3,4], "Version must be 3 or 4, not %s" % ver
+        # argh. why a global?
+        global size_type, version
+        if ver == 3:
+            size_type = 'L'  # may be Q?
+            version = 3
+        if ver == 4:
+            size_type = 'Q'  # may be Q?
+            version = 4
+        file_size, endianness = get_from_file(f, ">%c l" % size_type)
+        assert endianness == 1, "Endianness must be 1, not %s"%endianness
         start = f.tell()
         ret = parse_dm_tag_root(f, outdata)
         end = f.tell()
@@ -133,7 +149,7 @@ def parse_dm_tag_root(f, outdata=None):
                 assert(key is not None)
                 parse_dm_tag_entry(f, outdata[key], key)
     else:
-        is_dict, _open, num_tags = get_from_file(f, "> b b l")
+        is_dict, _open, num_tags = get_from_file(f, ("> b b %c" % size_type))
         if verbose:
             print "New tag root", is_dict, _open, num_tags
         if is_dict:
@@ -142,7 +158,7 @@ def parse_dm_tag_root(f, outdata=None):
                 name, data = parse_dm_tag_entry(f)
                 assert(name is not None)
                 if verbose:
-                    print "Read name", name, "as", data
+                    print "Read name", name, "at", f.tell()
                 new_obj[name] = data
         else:
             new_obj = []
@@ -150,7 +166,7 @@ def parse_dm_tag_root(f, outdata=None):
                 name, data = parse_dm_tag_entry(f)
                 assert(name is None)
                 if verbose:
-                    print "appending...", i
+                    print "appending...", i, "at", f.tell()
                 new_obj.append(data)
 
         return new_obj
@@ -175,6 +191,12 @@ def parse_dm_tag_entry(f, outdata=None, outname=None):
             name = get_from_file(f, ">" + str(name_len) + "s")
         else:
             name = None
+
+        if version == 4:
+            extra_tag_flags  = get_from_file(f, ">%c" % size_type)
+            if verbose:
+                print "maybe_tag_length: ", maybe_tag_length
+
         if dtype == 21:
             arr = parse_dm_tag_data(f)
             if name and hasattr(arr, "__len__") and len(arr) > 0:
@@ -218,7 +240,7 @@ def parse_dm_tag_data(f, outdata=None):
         put_into_file(f, "> l", header+1)
         f.seek(0, 2)
     else:
-        _delim, header_len, data_type = get_from_file(f, "> 4s l l")
+        _delim, header_len, data_type = get_from_file(f, "> 4s {size} {size}".format(size=size_type))
         assert(_delim == "%%%%")
         ret, header = dm_types[data_type](f)
         assert(header + 1 == header_len)
@@ -227,16 +249,23 @@ def parse_dm_tag_data(f, outdata=None):
 
 # we store the id as a key and the name,
 # struct format, python types in a tuple for the value
+# mfm 2013-08-02 was using l, L for long and ulong but sizes vary
+# on platforms
+# can we use i, I instead?
+# mfm 2013-11-15 looks like there's two new (or reinstated) types in DM4, 11 and 12.
+# Guessing what they are here
 dm_simple_names = {
     2: ("short", "h", []),
-    3: ("long", "l", [int]),
+    3: ("long", "i", [int]),
     4: ("ushort", "H", []),
-    5: ("ulong", "L", [long]),
+    5: ("ulong", "I", [long]),
     6: ("float", "f", []),
     7: ("double", "d", [float]),
     8: ("bool", "b", [bool]),
     9: ("char", "b", []),
-    10: ("octet", "b", [])
+    10: ("octet", "b", []),
+    11: ("int64", "q", []),
+    12: ("uint64", "Q", []),
 }
 
 dm_complex_names = {
@@ -306,7 +335,7 @@ def standard_dm_read(datatype_num, desc):
     nicename, structchar, types = desc
 
     def dm_read_x(f, outdata=None):
-        """Reads (or write id outdata is given) a simple data type.
+        """Reads (or write if outdata is given) a simple data type.
         returns the data if reading and the number of bytes of header
         """
         if outdata is not None:
@@ -347,7 +376,7 @@ def dm_read_string(f, outdata=None):
         slen = get_from_file(f, ">L")
         raws = get_from_file(f, ">" + str(slen) + "s")
         if verbose:
-            print "Got String", unicode(raws, "utf_16_le")
+            print "Got String", unicode(raws, "utf_16_le"), "at", f.tell()
         return unicode(raws, "utf_16_le"), header_size
 
 dm_types[get_dmtype_for_name('string')] = dm_read_string
@@ -364,10 +393,10 @@ def dm_read_struct_types(f, outtypes=None):
         return 2+2*len(outtypes)
     else:
         types = []
-        _len, nfields = get_from_file(f, "> l l")
+        _len, nfields = get_from_file(f, "> {size} {size}".format(size=size_type))
         assert(_len == 0)  # is it always?
         for i in range(nfields):
-            _len, dtype = get_from_file(f, "> l l")
+            _len, dtype = get_from_file(f, "> {size} {size}".format(size=size_type))
             types.append(dtype)
             assert(_len == 0)
             assert(dtype != 15)  # we don't allow structs of structs?
@@ -397,7 +426,8 @@ def dm_read_struct(f, outdata=None):
         return header
     else:
         types, header = dm_read_struct_types(f)
-        #print "Found struct with types", types
+        if verbose:
+            print "Found struct with types", types, "at", f.tell()
 
         ret = []
         for t in types:
@@ -445,27 +475,38 @@ def dm_read_array(f, outdata=None):
         # taglists, dicts for taggroups and arrays for array data.
         # But array.array only supports simple types. We need a new type, then.
         # let's make a structarray
-        dtype = get_from_file(f, "> l")
+        dtype = get_from_file(f, "> {size}".format(size=size_type))
         if dtype == get_dmtype_for_name('struct'):
             types, struct_header = dm_read_struct_types(f)
-            alen = get_from_file(f, "> L")
+            # NB this was '> L', but changing to > {size}. May break things!
+            alen = get_from_file(f, "> {size}".format(size=size_type))
             if verbose:
                 print types
-                print "Array of structs! types %s, len %d" % (",".join(map(str, types)), alen)
+                print "Array of structs! types %s, len %d" % (",".join(map(str, types)), alen), "at", f.tell()
             ret = structarray([get_structchar_for_dmtype(d) for d in types])
             ret.from_file(f, alen)
             return ret, array_header + struct_header
         else:
+            # mfm 2013-08-02 struct.calcsize('l') is 4 on win and 8 on Mac!
+            # however >l, <l is 4 on both... could be a bug?
+            # Can we get around this by adding '>' to out structchar?
+            # nope, array only takes a sinlge char. Trying i, I instead
             struct_char = get_structchar_for_dmtype(dtype)
             ret = array.array(struct_char)
-            alen = get_from_file(f, "> L")
+            # NB this was '> L', but changing to > {size}. May break things!
+            alen = get_from_file(f, "> {size}".format(size=size_type))
             if verbose:
-                print "Array type %d len %d" % (dtype, alen)
+                print "Array type %d len %d struct %c size %d" % (
+                    dtype, alen, struct_char, struct.calcsize(struct_char)), "at", f.tell()
             if alen:
                 # faster to read <1024f than <f 1024 times. probly
                 # stype = "<" + str(alen) + dm_simple_names[dtype][1]
                 # ret = get_from_file(f, stype)
                 read_array(f, ret, alen)
+            if dtype == get_dmtype_for_name('ushort'):
+                ret = ret.tostring().decode("utf-16")
+            if verbose:
+                print "Done Array type %d len %d" % (dtype, alen), "at", f.tell()
             return ret, array_header
 
 dm_types[get_dmtype_for_name('array')] = dm_read_array
