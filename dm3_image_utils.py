@@ -137,7 +137,7 @@ def load_image(file):
         properties["imported_properties"] = image_tags['ImageTags']
         voltage = image_tags['ImageTags'].get('ImageScanned', dict()).get('EHT', dict())
         if voltage:
-            properties["voltage"] = float(voltage)
+            properties["extra_high_tension"] = float(voltage)
     return data, calibrations, title, properties
 
 
