@@ -12,7 +12,7 @@ class DM3ImportExportHandler(ImportExportManager.ImportExportHandler):
         data_element = dict()
         data_element["data"] = data
         data_element["spatial_calibration"] = calibrations
-        data_element["title"] = data
+        data_element["title"] = title
         data_element["properties"] = properties
         return [data_element]
 

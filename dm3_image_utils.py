@@ -124,15 +124,20 @@ def load_image(file):
     dmtag = parse_dm_header(file)
     #display_keys(dmtag)
     img_index = -1
-    data = imagedatadict_to_ndarray(dmtag['ImageList'][img_index]['ImageData'])
+    image_tags = dmtag['ImageList'][img_index]
+    data = imagedatadict_to_ndarray(image_tags['ImageData'])
     calibrations = []
-    for dimension in dmtag['ImageList'][img_index]['ImageData']['Calibrations']['Dimension']:
+    calibration_tags = image_tags['ImageData'].get('Calibrations', dict())
+    for dimension in calibration_tags.get('Dimension', list()):
         calibrations.append((dimension['Origin'], dimension['Scale'], dimension['Units']))
-    title = dmtag['ImageList'][img_index]['Name']
-    properties = { "imported_properties": dmtag['ImageList'][img_index]['ImageTags'] }
-    voltage = dmtag['ImageList'][img_index]['ImageTags'].get('ImageScanned', dict()).get('EHT', dict())
-    if voltage:
-        properties["voltage"] = float(voltage)
+    title = image_tags.get('Name')
+    properties = dict()
+    voltage = None
+    if 'ImageTags' in image_tags:
+        properties["imported_properties"] = image_tags['ImageTags']
+        voltage = image_tags['ImageTags'].get('ImageScanned', dict()).get('EHT', dict())
+        if voltage:
+            properties["voltage"] = float(voltage)
     return data, calibrations, title, properties
 
 
