@@ -7,8 +7,8 @@ class DM3ImportExportHandler(ImportExportManager.ImportExportHandler):
     def __init__(self):
         super(DM3ImportExportHandler, self).__init__("DigitalMicrograph Files", ["dm3", "dm4"])
 
-    def read_data(self, extension, f):
-        data, calibrations, title, properties = load_image(f)
+    def read_data_elements(self, ui, extension, file_path):
+        data, calibrations, title, properties = load_image(file_path)
         data_element = dict()
         data_element["data"] = data
         data_element["spatial_calibration"] = calibrations

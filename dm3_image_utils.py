@@ -118,7 +118,7 @@ def load_image(file):
     Returns a numpy ndarray of our best guess for the most important image
     in the file.
     """
-    if isinstance(file, str):
+    if isinstance(file, str) or isinstance(file, unicode):
         with open(file, "rb") as f:
             return load_image(f)
     dmtag = parse_dm_header(file)
