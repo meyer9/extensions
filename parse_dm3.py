@@ -62,6 +62,9 @@ class structarray(object):
     def __eq__(self, other):
         return self.raw_data == other.raw_data and self.typecodes == other.typecodes
 
+    def __ne__(self, other):
+        return self.raw_data != other.raw_data or self.typecodes != other.typecodes
+
     def __repr__(self):
         return "structarray({}, {})".format(self.typecodes, self.raw_data)
 
