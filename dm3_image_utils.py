@@ -58,6 +58,8 @@ def imagedatadict_to_ndarray(imdict):
         im = np.frombuffer(
             arr.raw_data,
             dtype=structarray_to_np_map[t])
+    elif isinstance(arr, types.UnicodeType):
+        im = np.frombuffer(arr, dtype=np.uint16)
     # print "Image has dmimagetype", imdict["DataType"], "numpy type is", im.dtype
     assert dm_image_dtypes[imdict["DataType"]][1] == im.dtype
     assert imdict['PixelDepth'] == im.dtype.itemsize
