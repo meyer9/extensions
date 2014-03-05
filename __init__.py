@@ -11,7 +11,10 @@ class DM3ImportExportHandler(ImportExportManager.ImportExportHandler):
         data, calibrations, title, properties = load_image(file_path)
         data_element = dict()
         data_element["data"] = data
-        data_element["spatial_calibration"] = calibrations
+        spatial_calibrations = list()
+        for calibration in calibrations:
+            spatial_calibrations.append({ "origin": calibration[0], "scale": calibration[1], "units": calibration[2] })
+        data_element["spatial_calibrations"] = spatial_calibrations
         data_element["title"] = title
         data_element["properties"] = properties
         return [data_element]
