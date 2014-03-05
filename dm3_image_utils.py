@@ -140,7 +140,7 @@ def load_image(file):
         voltage = image_tags['ImageTags'].get('ImageScanned', dict()).get('EHT', dict())
         if voltage:
             properties["extra_high_tension"] = float(voltage)
-    return data, calibrations, title, properties
+    return data, tuple(reversed(calibrations)), title, properties
 
 
 def save_image(image, file):
