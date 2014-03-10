@@ -1,6 +1,9 @@
-from dm3_image_utils import load_image, save_image
+import logging
 
 from nion.swift import ImportExportManager
+from nion.imaging import Image
+
+from dm3_image_utils import load_image, save_image
 
 class DM3ImportExportHandler(ImportExportManager.ImportExportHandler):
 
@@ -13,7 +16,9 @@ class DM3ImportExportHandler(ImportExportManager.ImportExportHandler):
         data_element["data"] = data
         spatial_calibrations = list()
         for calibration in calibrations:
-            spatial_calibrations.append({ "origin": calibration[0], "scale": calibration[1], "units": calibration[2] })
+            origin, scale, units = calibration[0], calibration[1], calibration[2]
+            scale = 1.0 if scale == 0.0 else scale  # sanity check
+            spatial_calibrations.append({ "origin": origin, "scale": scale, "units": units })
         data_element["spatial_calibrations"] = spatial_calibrations
         data_element["title"] = title
         data_element["properties"] = properties
