@@ -1,6 +1,6 @@
-from nion.swift import ImportExportManager
-
 from dm3_image_utils import load_image, save_image
+from nion.swift.model import ImportExportManager
+
 
 class DM3ImportExportHandler(ImportExportManager.ImportExportHandler):
 
