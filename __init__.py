@@ -1,7 +1,4 @@
-import logging
-
 from nion.swift import ImportExportManager
-from nion.imaging import Image
 
 from dm3_image_utils import load_image, save_image
 
