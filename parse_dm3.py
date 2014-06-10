@@ -22,13 +22,14 @@ import re
 # (v1 cnows about names we're trying to extract at extraction time
 # this one doesn't). Is easier to follow though
 verbose = False
-# if we find data which matches this regex we return a
-# string instead of an array
-treat_as_string_names = ['.*Name']
+
 # we treat sizes separately to distinguish 32bit (dm3) and 64 bit (dm4)
 # these globals can get changed in parse_dm3_header
 version = 3
 size_type = "L"
+
+TAG_TYPE_ARRAY = 20
+TAG_TYPE_DATA = 21
 
 def get_from_file(f, stype):
     #print "reading", stype, "size", struct.calcsize(stype)
@@ -93,7 +94,7 @@ def parse_dm_header(f, outdata=None):
     """
     # filesize is sizeondisk - 16. But we have 8 bytes of zero at the end of
     # the file.
-    if outdata is not None:
+    if outdata is not None:  # this means we're WRITING to the file
         ver, file_size, endianness = 3, -1, 1
         put_into_file(f, "> l l l", ver, file_size, endianness)
         start = f.tell()
@@ -134,7 +135,7 @@ def parse_dm_header(f, outdata=None):
 
 
 def parse_dm_tag_root(f, outdata=None):
-    if outdata is not None:
+    if outdata is not None:  # this means we're WRITING to the file
         is_dict = 0 if isinstance(outdata, list) else 1
         _open, num_tags = 0, len(outdata)
         put_into_file(f, "> b b l", is_dict, _open, num_tags)
@@ -176,14 +177,14 @@ def parse_dm_tag_root(f, outdata=None):
 
 
 def parse_dm_tag_entry(f, outdata=None, outname=None):
-    if outdata is not None:
-        dtype = 20 if isinstance(outdata, (dict, list)) else 21
+    if outdata is not None:  # this means we're WRITING to the file
+        dtype = TAG_TYPE_ARRAY if isinstance(outdata, (dict, list)) else TAG_TYPE_DATA
         name_len = len(outname) if outname else 0
         put_into_file(f, "> b H", dtype, name_len)
         if outname:
             put_into_file(f, ">" + str(name_len) + "s", outname)
 
-        if dtype == 21:
+        if dtype == TAG_TYPE_DATA:
             parse_dm_tag_data(f, outdata)
         else:
             parse_dm_tag_root(f, outdata)
@@ -191,7 +192,7 @@ def parse_dm_tag_entry(f, outdata=None, outname=None):
     else:
         dtype, name_len = get_from_file(f, "> b H")
         if name_len:
-            name = get_from_file(f, ">" + str(name_len) + "s")
+            name = get_from_file(f, ">" + str(name_len) + "s").decode("latin")
         else:
             name = None
 
@@ -200,9 +201,12 @@ def parse_dm_tag_entry(f, outdata=None, outname=None):
             if verbose:
                 print "maybe_tag_length: ", maybe_tag_length
 
-        if dtype == 21:
+        if dtype == TAG_TYPE_DATA:
             arr = parse_dm_tag_data(f)
             if name and hasattr(arr, "__len__") and len(arr) > 0:
+                # if we find data which matches this regex we return a
+                # string instead of an array
+                treat_as_string_names = ['.*Name']
                 for regex in treat_as_string_names:
                     if re.match(regex, name):
                         if isinstance(arr[0], int):
@@ -211,7 +215,7 @@ def parse_dm_tag_entry(f, outdata=None, outname=None):
                             arr = ''.join(arr)
 
             return name, arr
-        elif dtype == 20:
+        elif dtype == TAG_TYPE_ARRAY:
             return name, parse_dm_tag_root(f)
         else:
             raise Exception("Unknown data type=" + str(dtype))
@@ -226,8 +230,8 @@ def parse_dm_tag_data(f, outdata=None):
     # for simple types we just read data, for strings, we read type, length
     # for structs we read len,num, len0,type0,len1,... =num*2+2
     # structs (15) can be 7,9,11,19
-    # arrays (20) can be 3 or 11
-    if outdata is not None:
+    # arrays (TAG_TYPE_ARRAY) can be 3 or 11
+    if outdata is not None:  # this means we're WRITING to the file
             # can we get away with a limited set that we write?
         # ie can all numbers be doubles or ints, and we have lists
         _, data_type = get_structdmtypes_for_python_typeorobject(outdata)
@@ -274,7 +278,7 @@ dm_simple_names = {
 dm_complex_names = {
     18: "string",
     15: "struct",
-    20: "array"}
+    TAG_TYPE_ARRAY: "array"}
 
 
 def get_dmtype_for_name(name):
@@ -341,7 +345,7 @@ def standard_dm_read(datatype_num, desc):
         """Reads (or write if outdata is given) a simple data type.
         returns the data if reading and the number of bytes of header
         """
-        if outdata is not None:
+        if outdata is not None:  # this means we're WRITING to the file
             put_into_file(f, "<"+structchar, outdata)
             return 0
         else:
@@ -355,7 +359,7 @@ for key, val in dm_simple_names.items():
 
 
 def dm_read_bool(f, outdata=None):
-    if outdata:
+    if outdata:  # this means we're WRITING to the file
         put_into_file(f, "<b", 1 if outdata else 0)
         return 0
     else:
@@ -368,7 +372,7 @@ dm_types[get_dmtype_for_name('bool')] = dm_read_bool
 # treated as array?
 def dm_read_string(f, outdata=None):
     header_size = 1  # just a length field
-    if outdata is not None:
+    if outdata is not None:  # this means we're WRITING to the file
         outdata = outdata.encode("utf_16_le")
         slen = len(outdata)
         put_into_file(f, ">L", slen)
@@ -407,7 +411,7 @@ def dm_read_struct_types(f, outtypes=None):
 
 
 def dm_read_struct(f, outdata=None):
-    if outdata is not None:
+    if outdata is not None:  # this means we're WRITING to the file
         start = f.tell()
         types = [get_structdmtypes_for_python_typeorobject(x)[1]
                  for x in outdata]
@@ -441,10 +445,10 @@ def dm_read_struct(f, outdata=None):
 dm_types[get_dmtype_for_name('struct')] = dm_read_struct
 
 
-# array is 20
+# array is TAG_TYPE_ARRAY
 def dm_read_array(f, outdata=None):
     array_header = 2  # type, length
-    if outdata is not None:
+    if outdata is not None:  # this means we're WRITING to the file
         if isinstance(outdata, structarray):
             # we write type, struct_types, length
             put_into_file(f, "> l", get_dmtype_for_name('struct'))

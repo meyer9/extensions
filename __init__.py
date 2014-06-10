@@ -1,11 +1,16 @@
+import gettext
+
 from dm3_image_utils import load_image, save_image
+
 from nion.swift.model import ImportExportManager
+
+_ = gettext.gettext
 
 
 class DM3ImportExportHandler(ImportExportManager.ImportExportHandler):
 
     def __init__(self):
-        super(DM3ImportExportHandler, self).__init__("DigitalMicrograph Files", ["dm3", "dm4"])
+        super(DM3ImportExportHandler, self).__init__(_("DigitalMicrograph Files"), ["dm3", "dm4"])
 
     def read_data_elements(self, ui, extension, file_path):
         data, calibrations, title, properties = load_image(file_path)
