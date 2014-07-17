@@ -1,4 +1,5 @@
 import gettext
+import logging
 
 from dm3_image_utils import load_image, save_image
 
@@ -20,7 +21,7 @@ class DM3ImportExportHandler(ImportExportManager.ImportExportHandler):
         for calibration in calibrations:
             origin, scale, units = calibration[0], calibration[1], calibration[2]
             scale = 1.0 if scale == 0.0 else scale  # sanity check
-            spatial_calibrations.append({ "offset": -origin, "scale": scale, "units": units })
+            spatial_calibrations.append({ "offset": -origin * scale, "scale": scale, "units": units })
         data_element["spatial_calibrations"] = spatial_calibrations
         data_element["title"] = title
         data_element["properties"] = properties
