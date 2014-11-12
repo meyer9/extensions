@@ -4,18 +4,22 @@ import logging
 import threading
 import time
 
-import numpy
-
-
 # third party libraries
-# see http://docs.opencv.org/index.html
-import cv2
-import cv2.cv as cv
+import numpy
 
 # local libraries
 from nion.swift.model import HardwareSource
+from nion.swift.model import PlugInManager
 
 _ = gettext.gettext
+
+# third party libraries
+# see http://docs.opencv.org/index.html
+try:
+    import cv2
+    import cv2.cv as cv
+except ImportError:
+    raise PlugInManager.RequirementsException(_("Could not import cv2."))
 
 
 # does not currently work. to switch to this, copy the hardware source code out of
