@@ -28,7 +28,7 @@ class DM3ImportExportHandler(ImportExportManager.ImportExportHandler):
         return [data_element]
 
     def can_write(self, data_item, extension):
-        return extension == "dm3" and len(data_item.spatial_shape) == 2
+        return extension == "dm3" and data_item.maybe_data_source and len(data_item.maybe_data_source.dimensional_shape) == 2
 
     def write_data(self, data, extension, f):
         save_image(data, f)
