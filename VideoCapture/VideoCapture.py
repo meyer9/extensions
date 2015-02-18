@@ -82,7 +82,7 @@ class VideoCaptureHardwareSource(HardwareSource.HardwareSource):
         self.hardware_source = _("Video Capture")
         super(VideoCaptureHardwareSource, self).__init__(self.hardware_source_id, self.hardware_source)
 
-    def start_acquisition(self, mode, mode_data):
+    def start_acquisition(self):
         video_capture = cv2.VideoCapture(0)
         width = video_capture.get(cv.CV_CAP_PROP_FRAME_WIDTH)
         height = video_capture.get(cv.CV_CAP_PROP_FRAME_HEIGHT)

@@ -35,7 +35,10 @@ class FaceDetectionOperation(Operation.Operation):
     def __init__(self):
         super(FaceDetectionOperation, self).__init__(_("Face Detection"), "face-detection-operation")
 
-    def process(self, data):
+    def get_processed_data(self, data_sources, values):
+        data = data_sources[0].data
+        if data is None:
+            return None
         img = Image.create_rgba_image_from_array(data)  # inefficient since we're just converting back to gray
         if id(img) == id(data):
             img = img.copy()
@@ -50,7 +53,10 @@ class FaceDetectionOperation(Operation.Operation):
 
 
 def processing_face_detect(document_controller):
-    document_controller.add_processing_operation_by_id("face-detection-operation", prefix=_("Face Detection of "))
+    display_specifier = document_controller.selected_display_specifier
+    return document_controller.add_processing_operation_by_id(display_specifier.buffered_data_source_specifier,
+                                                              "face-detection-operation",
+                                                              prefix=_("Face Detection of "))
 
 
 def build_menus(document_controller):

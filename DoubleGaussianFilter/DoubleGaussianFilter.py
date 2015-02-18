@@ -1,8 +1,8 @@
 """
     Double Gaussian Filter.
-    
+
     Implemented as an operation that can be applied to data items.
-    
+
     This code is experimental, meaning that it works with the current version
     but will probably not work "as-is" with future versions of the software.
 
@@ -35,15 +35,15 @@ class DoubleGaussianFilterOperation(Operation.Operation):
                        {"name": _("Weight 2"), "property": "weight2", "type": "scalar", "default": 0.3}, ]
         super(DoubleGaussianFilterOperation, self).__init__(_("Double Gaussian Filter"),
                                                             "double-gaussian-filter-operation", description)
-        # initialize the parameters
-        self.sigma1 = 0.3
-        self.sigma2 = 0.3
-        self.weight2 = 0.3
 
     # process is called to process the data. this version does not change the data shape
     # or data type. if it did, we would need to provide another function to describe the
     # change in shape or data type.
-    def process(self, data):
+    def get_processed_data(self, data_sources, values):
+
+        data = data_sources[0].data
+        if data is None:
+            return None
 
         # only works with 2d, scalar data
         if Image.is_data_2d(data) and Image.is_data_scalar_type(data):
@@ -54,9 +54,9 @@ class DoubleGaussianFilterOperation(Operation.Operation):
 
             # grab our parameters. ideally this could just access the member variables directly,
             # but it doesn't work that way (yet).
-            sigma1 = self.get_property("sigma1")
-            sigma2 = self.get_property("sigma2")
-            weight2 = self.get_property("weight2")
+            sigma1 = values.get("sigma1")
+            sigma2 = values.get("sigma2")
+            weight2 = values.get("weight2")
 
             # first calculate the FFT
             fft_data = scipy.fftpack.fftshift(scipy.fftpack.fft2(data_copy))
@@ -89,7 +89,9 @@ class DoubleGaussianFilterOperation(Operation.Operation):
 # The following is code for making this into a process you can access from the processing menu
 
 def processing_double_gaussian_filter(document_controller):
-    return document_controller.add_processing_operation_by_id("double-gaussian-filter-operation",
+    display_specifier = document_controller.selected_display_specifier
+    return document_controller.add_processing_operation_by_id(display_specifier.buffered_data_source_specifier,
+                                                              "double-gaussian-filter-operation",
                                                               prefix=_("Double Gaussian Filter of "))
 
 
