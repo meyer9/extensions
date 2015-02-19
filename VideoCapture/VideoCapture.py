@@ -78,9 +78,9 @@ def video_capture_thread(video_capture, buffer, cancel_event, ready_event, done_
 class VideoCaptureHardwareSource(HardwareSource.HardwareSource):
 
     def __init__(self):
-        self.hardware_source_id = "video_capture"
-        self.hardware_source = _("Video Capture")
-        super(VideoCaptureHardwareSource, self).__init__(self.hardware_source_id, self.hardware_source)
+        self.__hardware_source_id = "video_capture"
+        self.__hardware_source_name = _("Video Capture")
+        super(VideoCaptureHardwareSource, self).__init__(self.__hardware_source_id, self.__hardware_source_name)
 
     def start_acquisition(self):
         video_capture = cv2.VideoCapture(0)
@@ -102,8 +102,8 @@ class VideoCaptureHardwareSource(HardwareSource.HardwareSource):
             "version": 1,
             "data": data,
             "properties": {
-                "hardware_source": self.hardware_source,
-                "hardware_source_id": self.hardware_source_id,
+                "hardware_source_name": self.__hardware_source_name,
+                "hardware_source_id": self.__hardware_source_id,
             }
         }
         return [data_element]
