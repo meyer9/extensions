@@ -140,6 +140,7 @@ def load_image(file):
         voltage = image_tags['ImageTags'].get('ImageScanned', dict()).get('EHT', dict())
         if voltage:
             properties["autostem"] = { "high_tension_v": float(voltage) }
+            properties["extra_high_tension"] = float(voltage)  # TODO: file format: remove extra_high_tension
     return data, tuple(reversed(calibrations)), title, properties
 
 
