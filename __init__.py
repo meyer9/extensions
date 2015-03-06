@@ -51,11 +51,7 @@ def load_image(file_path):
     return dm3_image_utils.load_image(file_path)
 
 
-api_manifest = {
-    "main": "1",
-}
-
-api = Facade.load(api_manifest)
+api = Facade.get_api(version="1", ui_version="1")
 api.create_data_and_metadata_io_handler(DM3IODelegate(api))
 
 # TODO: How should IO delegate handle title when reading using read_data_and_metadata
