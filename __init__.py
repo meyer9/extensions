@@ -34,11 +34,9 @@ class DM3IODelegate(object):
             scale = 1.0 if scale == 0.0 else scale  # sanity check
             dimensional_calibrations.append(self.__api.create_calibration(-origin * scale, scale, units))
         # data_element["title"] = title
-        intensity_calibration = self.__api.create_calibration()
         metadata = dict()
         metadata["hardware_source"] = properties
-        timestamp = None
-        return self.__api.create_data_and_metadata_from_data(data, intensity_calibration, dimensional_calibrations, metadata, timestamp)
+        return self.__api.create_data_and_metadata_from_data(data, dimensional_calibrations=dimensional_calibrations, metadata=metadata)
 
     def can_write_data_and_metadata(self, data_and_metadata, extension):
         return extension == "dm3" and data_and_metadata.is_data_2d
