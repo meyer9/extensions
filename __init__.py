@@ -11,8 +11,6 @@ import gettext
 # local libraries
 import dm3_image_utils
 
-from nion.swift import Facade
-
 
 _ = gettext.gettext
 
@@ -51,7 +49,21 @@ def load_image(file_path):
     return dm3_image_utils.load_image(file_path)
 
 
-api = Facade.get_api(version="1", ui_version="1")
-api.create_data_and_metadata_io_handler(DM3IODelegate(api))
+class DM3IOExtension(object):
+
+    # required for Swift to recognize this as an extension class.
+    extension_id = "nion.swift.extensions.dm3"
+
+    def __init__(self, api_broker):
+        # grab the api object.
+        api = api_broker.get_api(version="1", ui_version="1")
+        # be sure to keep a reference or it will be closed immediately.
+        self.__io_handler_ref = api.create_data_and_metadata_io_handler(DM3IODelegate(api))
+
+    def close(self):
+        # close will be called when the extension is unloaded. in turn, close any references so they get closed. this
+        # is not strictly necessary since the references will be deleted naturally when this object is deleted.
+        self.__io_handler_ref.close()
+        self.__io_handler_ref = None
 
 # TODO: How should IO delegate handle title when reading using read_data_and_metadata
