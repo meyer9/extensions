@@ -1,36 +1,63 @@
+"""
+    Support for DM3 and DM4 I/O.
+"""
+
+# standard libraries
 import gettext
-import logging
 
-from dm3_image_utils import load_image, save_image
+# third party libraries
+# None
 
-from nion.swift.model import ImportExportManager
+# local libraries
+import dm3_image_utils
+
+from nion.swift import Facade
+
 
 _ = gettext.gettext
 
 
-class DM3ImportExportHandler(ImportExportManager.ImportExportHandler):
+class DM3IODelegate(object):
 
-    def __init__(self):
-        super(DM3ImportExportHandler, self).__init__(_("DigitalMicrograph Files"), ["dm3", "dm4"])
+    def __init__(self, api):
+        self.__api = api
+        self.io_handler_name = _("DigitalMicrograph Files")
+        self.io_handler_extensions = ["dm3", "dm4"]
 
-    def read_data_elements(self, ui, extension, file_path):
-        data, calibrations, title, properties = load_image(file_path)
+    def read_data_and_metadata(self, extension, file_path):
+        data, calibrations, title, properties = dm3_image_utils.load_image(file_path)
         data_element = dict()
         data_element["data"] = data
         dimensional_calibrations = list()
         for calibration in calibrations:
             origin, scale, units = calibration[0], calibration[1], calibration[2]
             scale = 1.0 if scale == 0.0 else scale  # sanity check
-            dimensional_calibrations.append({ "offset": -origin * scale, "scale": scale, "units": units })
-        data_element["spatial_calibrations"] = dimensional_calibrations
-        data_element["title"] = title
-        data_element["properties"] = properties
-        return [data_element]
+            dimensional_calibrations.append(self.__api.create_calibration(-origin * scale, scale, units))
+        # data_element["title"] = title
+        intensity_calibration = self.__api.create_calibration()
+        metadata = dict()
+        metadata["hardware_source"] = properties
+        timestamp = None
+        return self.__api.create_data_and_metadata_from_data(data, intensity_calibration, dimensional_calibrations, metadata, timestamp)
 
-    def can_write(self, data_item, extension):
-        return extension == "dm3" and data_item.maybe_data_source and len(data_item.maybe_data_source.dimensional_shape) == 2
+    def can_write_data_and_metadata(self, data_and_metadata, extension):
+        return extension == "dm3" and data_and_metadata.is_data_2d
 
-    def write_data(self, data, extension, f):
-        save_image(data, f)
+    def write_data_and_metadata(self, data_and_metadata, file_path, extension):
+        data = data_and_metadata.data
+        with open(file_path, 'wb') as f:
+            dm3_image_utils.save_image(data, f)
 
-ImportExportManager.ImportExportManager().register_io_handler(DM3ImportExportHandler())
+
+def load_image(file_path):
+    return dm3_image_utils.load_image(file_path)
+
+
+api_manifest = {
+    "main": "1",
+}
+
+api = Facade.load(api_manifest)
+api.create_data_and_metadata_io_handler(DM3IODelegate(api))
+
+# TODO: How should IO delegate handle title when reading using read_data_and_metadata
