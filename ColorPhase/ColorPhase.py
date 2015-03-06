@@ -1,38 +1,39 @@
-#ColorPhase, by Zeno Dellby
-#installed by putting it into a folder in the PlugIns directory,
-#along with a file named __init__.py whose only contents are
-#
-#import ColorPhase
-#
+# ColorPhase, by Zeno Dellby
 
+# system imports
 import gettext
 import math
 
+# library imports
 import numpy as np
 
-
 # local libraries
-from nion.swift import Application
-from nion.swift.model import Image
-from nion.swift.model import Operation
+# None
+
 
 _ = gettext.gettext  # for translation
 
-#The operation class. Functions in it are called by Swift.
-class ColorPhaseOperation(Operation.Operation):
-    def __init__(self):
-        super(ColorPhaseOperation, self).__init__(_("Color Phase"), "color-phase-operation")
 
-    #This is called whenever Swift wants to update the Color Phase image
-    def get_processed_data(self, data_sources, values):
-        img = data_sources[0].data
-        if img is None:
-            return None
+# The operation class. Functions in it are called by Swift.
+class ColorPhaseOperationDelegate(object):
+
+    def __init__(self, api):
+        self.__api = api
+        self.operation_id = "color-phase-operation"
+        self.operation_name = _("Color Phase")
+        self.operation_prefix = _("Color Phase of ")
+
+    def can_apply_to_data(self, data_and_metadata):
+        return data_and_metadata.is_data_2d
+
+    def get_processed_data_and_metadata(self, data_and_metadata, parameters):
+        api = self.__api
+        img = data_and_metadata.data
         grad = np.zeros(img.shape+(3L,),dtype=np.uint8) # rgb format
         # grad will be returned at the end, then Swift will identify it as rgb and display it as such.
         w = img.shape[0] #w and h are much shorter to read than img.shape[0] and img.shape[1]
         h = img.shape[1]
-        if Image.is_data_complex_type(img): #If it's complex, we want to show the phase data, otherwise just a color map
+        if img.is_data_complex_type: #If it's complex, we want to show the phase data, otherwise just a color map
             ave_intensity = np.median(np.log(abs(img))) #To see the colors in the cool parts more clearly, ignore the noise in the dark
             max_intensity = max(np.log(abs(img[0:w/2-2])).max(), np.log(abs(img[w/2+2:])).max(),       #not counting
                                 np.log(abs(img[0:,0:h/2-2])).max(), np.log(abs(img[0:,h/2+2:])).max()) #center pixels
@@ -74,19 +75,26 @@ class ColorPhaseOperation(Operation.Operation):
             grad[:,:,0] = (S*(np.cos(H)+1)*127.5+(1-S)*127.5)*I           #Blue
             grad[:,:,1] = (S*(np.cos(H-np.pi*2/3)+1)*127.5+(1-S)*127.5)*I #Green
             grad[:,:,2] = (S*(np.cos(H+np.pi*2/3)+1)*127.5+(1-S)*127.5)*I #Red
-        return grad #Return an image to Swift either way, because that's what it wants
+
+        intensity_calibration = data_and_metadata.intensity_calibration
+        dimensional_calibrations = data_and_metadata.dimensional_calibrations
+        metadata = data_and_metadata.metadata
+        return api.create_data_and_metadata_from_data(grad, intensity_calibration, dimensional_calibrations, metadata)
 
 
-#The following is code for making this into a process you can click on in the processing menu
+class ColorPhaseExtension(object):
 
-def processing_color_phase(document_controller):
-    display_specifier = document_controller.selected_display_specifier
-    return document_controller.add_processing_operation_by_id(display_specifier.buffered_data_source_specifier,
-                                                              "color-phase-operation", prefix=_("Color Phase of "))
+    # required for Swift to recognize this as an extension class.
+    extension_id = "nion.swift.extensions.color_phase"
 
-def build_menus(document_controller): #makes the Show Color Phase Button
-    document_controller.processing_menu.add_menu_item(_("Color Phase"), lambda: processing_color_phase(document_controller))
+    def __init__(self, api_broker):
+        # grab the api object.
+        api = api_broker.get_api(version="1", ui_version="1")
+        # be sure to keep a reference or it will be closed immediately.
+        self.__operation_ref = api.create_unary_operation(ColorPhaseOperationDelegate(api))
 
-Application.app.register_menu_handler(build_menus) #called on import to make the Show Color Phase Button
-
-Operation.OperationManager().register_operation("color-phase-operation", lambda: ColorPhaseOperation())
+    def close(self):
+        # close will be called when the extension is unloaded. in turn, close any references so they get closed. this
+        # is not strictly necessary since the references will be deleted naturally when this object is deleted.
+        self.__operation_ref.close()
+        self.__operation_ref = None

@@ -8,18 +8,10 @@ import time
 import numpy
 
 # local libraries
-from nion.swift.model import HardwareSource
-from nion.swift.model import PlugInManager
+# None
+
 
 _ = gettext.gettext
-
-# third party libraries
-# see http://docs.opencv.org/index.html
-try:
-    import cv2
-    import cv2.cv as cv
-except ImportError:
-    raise PlugInManager.RequirementsException(_("Could not import cv2."))
 
 
 # does not currently work. to switch to this, copy the hardware source code out of
@@ -75,12 +67,12 @@ def video_capture_thread(video_capture, buffer, cancel_event, ready_event, done_
     video_capture.release()
 
 
-class VideoCaptureHardwareSource(HardwareSource.HardwareSource):
+class VideoCaptureHardwareSourceDelegate(object):
 
-    def __init__(self):
-        self.__hardware_source_id = "video_capture"
-        self.__hardware_source_name = _("Video Capture")
-        super(VideoCaptureHardwareSource, self).__init__(self.__hardware_source_id, self.__hardware_source_name)
+    def __init__(self, api):
+        self.__api = api
+        self.hardware_source_id = "video_capture"
+        self.hardware_source_name = _("Video Capture")
 
     def start_acquisition(self):
         video_capture = cv2.VideoCapture(0)
@@ -93,20 +85,13 @@ class VideoCaptureHardwareSource(HardwareSource.HardwareSource):
         self.thread = threading.Thread(target=video_capture_thread, args=(video_capture, self.buffer, self.cancel_event, self.ready_event, self.done_event))
         self.thread.start()
 
-    def acquire_data_elements(self):
+    def acquire_data_and_metadata(self):
+        api = self.__api
         self.ready_event.wait()
         self.ready_event.clear()
         data = self.buffer.copy()
         self.done_event.set()
-        data_element = {
-            "version": 1,
-            "data": data,
-            "properties": {
-                "hardware_source_name": self.__hardware_source_name,
-                "hardware_source_id": self.__hardware_source_id,
-            }
-        }
-        return [data_element]
+        return api.create_data_and_metadata_from_data(data)
 
     def stop_acquisition(self):
         self.cancel_event.set()
@@ -114,4 +99,34 @@ class VideoCaptureHardwareSource(HardwareSource.HardwareSource):
         self.thread.join()
 
 
-HardwareSource.HardwareSourceManager().register_hardware_source(VideoCaptureHardwareSource())
+# see http://docs.opencv.org/index.html
+# fail cleanly if not able to import
+import_error = False
+try:
+    import cv2
+    import cv2.cv as cv
+except ImportError:
+    import_error = True
+
+
+class VideoCaptureExtension(object):
+
+    # required for Swift to recognize this as an extension class.
+    extension_id = "nion.swift.extensions.video_capture"
+
+    def __init__(self, api_broker):
+        # grab the api object.
+        api = api_broker.get_api(version="1", ui_version="1")
+
+        global import_error
+        if import_error:
+            api.raise_requirements_exception(_("Could not import cv2."))
+
+        # be sure to keep a reference or it will be closed immediately.
+        self.__hardware_source_ref = api.create_hardware_source(VideoCaptureHardwareSourceDelegate(api))
+
+    def close(self):
+        # close will be called when the extension is unloaded. in turn, close any references so they get closed. this
+        # is not strictly necessary since the references will be deleted naturally when this object is deleted.
+        self.__hardware_source_ref.close()
+        self.__hardware_source_ref = None
