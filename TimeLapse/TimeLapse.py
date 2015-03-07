@@ -27,7 +27,7 @@ def perform_time_lapse(hardware_source, document_controller, data_group):
 
             task_data = {"headers": ["Number", "Time"]}
 
-            for i in xrange(5):
+            for i in range(5):
 
                 # update task results table. data should be in the form of
                 # { "headers": ["Header1", "Header2"],
@@ -67,7 +67,7 @@ class MenuItemDelegate(object):
 
     def menu_item_execute(self, document_controller):
         data_group = document_controller.get_or_create_data_group(_("Time Lapse"))
-        hardware_source = self.__api.get_hardware_source_by_id("random_capture", version="1.1")
+        hardware_source = self.__api.get_hardware_source_by_id("random_capture", version="1.0")
 
         threading.Thread(target=perform_time_lapse, args=(hardware_source, document_controller, data_group)).start()
 
