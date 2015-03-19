@@ -19,6 +19,7 @@ class DM3IODelegate(object):
 
     def __init__(self, api):
         self.__api = api
+        self.io_handler_id = "dm-io-handler"
         self.io_handler_name = _("DigitalMicrograph Files")
         self.io_handler_extensions = ["dm3", "dm4"]
 
