@@ -23,7 +23,7 @@ class DM3IODelegate(object):
         self.io_handler_extensions = ["dm3", "dm4"]
 
     def read_data_and_metadata(self, extension, file_path):
-        data, calibrations, title, properties = dm3_image_utils.load_image(file_path)
+        data, calibrations, intensity, title, properties = dm3_image_utils.load_image(file_path)
         data_element = dict()
         data_element["data"] = data
         dimensional_calibrations = list()
@@ -41,8 +41,11 @@ class DM3IODelegate(object):
 
     def write_data_and_metadata(self, data_and_metadata, file_path, extension):
         data = data_and_metadata.data
+        dimensional_calibrations = data_and_metadata.dimensional_calibrations
+        intensity_calibration = data_and_metadata.intensity_calibration
+        metadata = data_and_metadata.metadata
         with open(file_path, 'wb') as f:
-            dm3_image_utils.save_image(data, f)
+            dm3_image_utils.save_image(data, dimensional_calibrations, intensity_calibration, metadata, f)
 
 
 def load_image(file_path):

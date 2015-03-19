@@ -132,6 +132,8 @@ def load_image(file):
     calibration_tags = image_tags['ImageData'].get('Calibrations', dict())
     for dimension in calibration_tags.get('Dimension', list()):
         calibrations.append((dimension['Origin'], dimension['Scale'], dimension['Units']))
+    brightness = calibration_tags.get('Brightness', dict())
+    intensity = brightness.get('Origin', 0.0), brightness.get('Scale', 1.0), brightness.get('Units', str())
     title = image_tags.get('Name')
     properties = dict()
     voltage = None
@@ -141,31 +143,49 @@ def load_image(file):
         if voltage:
             properties["autostem"] = { "high_tension_v": float(voltage) }
             properties["extra_high_tension"] = float(voltage)  # TODO: file format: remove extra_high_tension
-    return data, tuple(reversed(calibrations)), title, properties
+    return data, tuple(reversed(calibrations)), intensity, title, properties
 
 
-def save_image(image, file):
+def save_image(data, dimensional_calibrations, intensity_calibration, metadata, file):
     """
-    Saves the nparray image to the file-like object (or string) file.
+    Saves the nparray data to the file-like object (or string) file.
     If file is a string the file is created and written to
     """
     if isinstance(file, str):
         with open(file, "wb") as f:
             return save_image(n, f)
-    # we need to create a basic DM tree suitable for an imge
-    # we'll try the minimum: just an image list
+    # we need to create a basic DM tree suitable for an image
+    # we'll try the minimum: just an data list
     # doesn't work. Do we need a ImageSourceList too?
     # and a DocumentObjectList?
-    image = ndarray_to_imagedatadict(image)
+    data_dict = ndarray_to_imagedatadict(data)
     ret = {}
-    ret["ImageList"] = [{"ImageData": image}]
+    ret["ImageList"] = [{"ImageData": data_dict}]
+    if dimensional_calibrations and len(dimensional_calibrations) == len(data.shape):
+        dimension_list = data_dict.setdefault("Calibrations", dict()).setdefault("Dimension", list())
+        for dimensional_calibration in reversed(dimensional_calibrations):
+            dimension = dict()
+            dimension['Origin'] = dimensional_calibration.offset
+            dimension['Scale'] = dimensional_calibration.scale
+            dimension['Units'] = unicode(dimensional_calibration.units)
+            dimension_list.append(dimension)
+    if intensity_calibration:
+        brightness = data_dict.setdefault("Calibrations", dict()).setdefault("Brightness", dict())
+        brightness['Origin'] = intensity_calibration.offset
+        brightness['Scale'] = intensity_calibration.scale
+        brightness['Units'] = str(intensity_calibration.units)
     # I think ImageSource list creates a mapping between ImageSourceIds and Images
     ret["ImageSourceList"] = [{"ClassName": "ImageSource:Simple", "Id": [0], "ImageRef": 0}]
     # I think this lists the sources for the DocumentObjectlist. The source number is not
     # the indxe in the imagelist but is either the index in the ImageSourceList or the Id
-    # from that list. We also need to set the annotation type to identify it as an image
+    # from that list. We also need to set the annotation type to identify it as an data
     ret["DocumentObjectList"] = [{"ImageSource": 0, "AnnotationType": 20}]
     # finally some display options
     ret["Image Behavior"] = {"ViewDisplayID": 8}
+    ret["ImageList"][0]["ImageTags"] = metadata
     ret["InImageMode"] = 1
     parse_dm_header(file, ret)
+
+
+# logging.debug(image_tags['ImageData']['Calibrations'])
+# {u'DisplayCalibratedUnits': True, u'Dimension': [{u'Origin': -0.0, u'Units': u'nm', u'Scale': 0.01171875}, {u'Origin': -0.0, u'Units': u'nm', u'Scale': 0.01171875}, {u'Origin': 0.0, u'Units': u'', u'Scale': 0.01149425096809864}], u'Brightness': {u'Origin': 0.0, u'Units': u'', u'Scale': 1.0}}

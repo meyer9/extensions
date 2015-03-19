@@ -9,9 +9,13 @@ import array
 import logging
 import unittest
 import StringIO
-import numpy as np
+
+import numpy
 
 import parse_dm3
+import dm3_image_utils
+
+from nion.swift.model import Calibration
 
 
 class TestDM3ImportExportClass(unittest.TestCase):
@@ -39,7 +43,7 @@ class TestDM3ImportExportClass(unittest.TestCase):
 
     def test_simpledata(self):
         self.check_write_then_read_matches(45, parse_dm3.dm_types[parse_dm3.get_dmtype_for_name('long')])
-        self.check_write_then_read_matches(2**30, parse_dm3.dm_types[parse_dm3.get_dmtype_for_name('ulong')])
+        self.check_write_then_read_matches(2**30, parse_dm3.dm_types[parse_dm3.get_dmtype_for_name('uint')])
         self.check_write_then_read_matches(34.56, parse_dm3.dm_types[parse_dm3.get_dmtype_for_name('double')])
 
     def test_read_string(self):
@@ -68,7 +72,7 @@ class TestDM3ImportExportClass(unittest.TestCase):
 
     def test_tagroot_dict_complex(self):
         mydata = {"Bob": 45, "Henry": 67, "Joe": {
-                  "hi": [34, 56, 78, 23], "Nope": 56.7, "d": array.array('L', [0] * 32)}}
+                  "hi": [34, 56, 78, 23], "Nope": 56.7, "d": array.array('I', [0] * 32)}}
         self.check_write_then_read_matches(mydata, parse_dm3.parse_dm_tag_root)
 
     def test_tagroot_list(self):
@@ -88,7 +92,7 @@ class TestDM3ImportExportClass(unittest.TestCase):
 
     def test_image(self):
         im = array.array('h')
-        im.fromstring(np.random.random(16))
+        im.fromstring(numpy.random.random(16))
         im_tag = {"Data": im,
                   "Dimensions": [23, 45]}
         s = StringIO.StringIO()
@@ -98,6 +102,45 @@ class TestDM3ImportExportClass(unittest.TestCase):
         self.assertEqual(im_tag["Data"], ret["Data"])
         self.assertEqual(im_tag["Dimensions"], ret["Dimensions"])
         self.assert_((im_tag["Data"] == ret["Data"]))
+
+    def test_data_write_read_round_trip(self):
+        dtypes = (numpy.float32, numpy.float64, numpy.complex64, numpy.complex128, numpy.int16, numpy.uint16, numpy.int32, numpy.uint32)
+        for dtype in dtypes:
+            s = StringIO.StringIO()
+            data_in = numpy.ones((6, 4), dtype)
+            dimensional_calibrations_in = [Calibration.Calibration(1, 2, "nm"), Calibration.Calibration(2, 3, u"µm")]
+            intensity_calibration_in = Calibration.Calibration(4, 5, "six")
+            metadata_in = dict()
+            dm3_image_utils.save_image(data_in, dimensional_calibrations_in, intensity_calibration_in, metadata_in, s)
+            s.seek(0)
+            data_out, _, _, _, _ = dm3_image_utils.load_image(s)
+            self.assertTrue(numpy.array_equal(data_in, data_out))
+
+    def test_calibrations_write_read_round_trip(self):
+        s = StringIO.StringIO()
+        data_in = numpy.ones((6, 4), numpy.float32)
+        dimensional_calibrations_in = [Calibration.Calibration(1, 2, "nm"), Calibration.Calibration(2, 3, u"µm")]
+        intensity_calibration_in = Calibration.Calibration(4, 5, "six")
+        metadata_in = dict()
+        dm3_image_utils.save_image(data_in, dimensional_calibrations_in, intensity_calibration_in, metadata_in, s)
+        s.seek(0)
+        data_out, dimensional_calibrations_out, intensity_calibration_out, title_out, metadata_out = dm3_image_utils.load_image(s)
+        dimensional_calibrations_out = [Calibration.Calibration(*d) for d in dimensional_calibrations_out]
+        self.assertTrue(numpy.array_equal(dimensional_calibrations_in, dimensional_calibrations_out))
+        intensity_calibration_out = Calibration.Calibration(*intensity_calibration_out)
+        self.assertTrue(numpy.array_equal(intensity_calibration_in, intensity_calibration_out))
+
+    def test_metadata_write_read_round_trip(self):
+        s = StringIO.StringIO()
+        data_in = numpy.ones((6, 4), numpy.float32)
+        dimensional_calibrations_in = [Calibration.Calibration(1, 2, "nm"), Calibration.Calibration(2, 3, u"µm")]
+        intensity_calibration_in = Calibration.Calibration(4, 5, "six")
+        metadata_in = {"abc": 1, "def": "abc", "efg": { "one": 1, "two": "TWO", "three": [3, 4, 5] }}
+        dm3_image_utils.save_image(data_in, dimensional_calibrations_in, intensity_calibration_in, metadata_in, s)
+        s.seek(0)
+        data_out, dimensional_calibrations_out, intensity_calibration_out, title_out, metadata_out = dm3_image_utils.load_image(s)
+        imported_metadata = metadata_out.get("imported_properties", dict())
+        self.assertTrue(numpy.array_equal(metadata_in, imported_metadata))
 
 # some functions for processing multiple files.
 # useful for testing reading and writing a large number of files.
