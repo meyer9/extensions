@@ -1,11 +1,11 @@
-import struct
 import array
+import struct
 import StringIO
 import logging
 import re
 # mfm 2013-11-15 initial dm4 support
 # this should probably migrate into a class at some point.
-# No support for writing dm4 files, but shouldn't be hard - 
+# No support for writing dm4 files, but shouldn't be hard -
 # just need to make sure functions are symmetric
 # mfm 2013-05-21 do we need the numpy array stuff? The python array module
 # allows us to store arrays easily and efficiently. How do we deal
@@ -43,8 +43,7 @@ def get_from_file(f, stype):
 
 
 def put_into_file(f, stype, *args):
-    f.write(struct.pack(
-        stype, *args))
+    f.write(struct.pack(stype, *args))
 
 read_array = lambda f, a, l: a.fromstring(f.read(l*struct.calcsize(a.typecode))) if isinstance(f, StringIO.StringIO) else a.fromfile(f, l)
 write_array = lambda f, a: f.write(a.tostring()) if isinstance(f, StringIO.StringIO) else a.tofile(f)
@@ -263,9 +262,9 @@ def parse_dm_tag_data(f, outdata=None):
 # Guessing what they are here
 dm_simple_names = {
     2: ("short", "h", []),
-    3: ("long", "i", [int]),
+    3: ("long", "l", [int]),
     4: ("ushort", "H", []),
-    5: ("ulong", "I", [long]),
+    5: ("ulong", "L", [long]),
     6: ("float", "f", []),
     7: ("double", "d", [float]),
     8: ("bool", "b", [bool]),
@@ -350,6 +349,7 @@ def standard_dm_read(datatype_num, desc):
             return 0
         else:
             return get_from_file(f, "<"+structchar), 0
+
     return dm_read_x
 
 dm_types = {}
