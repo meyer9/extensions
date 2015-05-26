@@ -8,7 +8,12 @@ Created on Sun May 19 07:58:10 2013
 import array
 import logging
 import unittest
-import StringIO
+
+import sys
+if sys.version < '3':
+    import cStringIO as io
+else:
+    import io
 
 import numpy
 
@@ -22,7 +27,7 @@ class TestDM3ImportExportClass(unittest.TestCase):
 
     def check_write_then_read_matches(self, data, func, _assert=True):
         # we confirm that reading a written element returns the same value
-        s = StringIO.StringIO()
+        s = io.StringIO()
         header = func(s, outdata=data)
         s.seek(0)
         if header is not None:
@@ -34,7 +39,7 @@ class TestDM3ImportExportClass(unittest.TestCase):
         return r
 
     def test_dm_read_struct_types(self):
-        s = StringIO.StringIO()
+        s = io.StringIO()
         types = [2, 2, 2]
         parse_dm3.dm_read_struct_types(s, outtypes=types)
         s.seek(0)
@@ -95,7 +100,7 @@ class TestDM3ImportExportClass(unittest.TestCase):
         im.fromstring(numpy.random.random(16))
         im_tag = {"Data": im,
                   "Dimensions": [23, 45]}
-        s = StringIO.StringIO()
+        s = io.StringIO()
         parse_dm3.parse_dm_tag_root(s, outdata=im_tag)
         s.seek(0)
         ret = parse_dm3.parse_dm_tag_root(s)
@@ -106,7 +111,7 @@ class TestDM3ImportExportClass(unittest.TestCase):
     def test_data_write_read_round_trip(self):
         dtypes = (numpy.float32, numpy.float64, numpy.complex64, numpy.complex128, numpy.int16, numpy.uint16, numpy.int32, numpy.uint32)
         for dtype in dtypes:
-            s = StringIO.StringIO()
+            s = io.StringIO()
             data_in = numpy.ones((6, 4), dtype)
             dimensional_calibrations_in = [Calibration.Calibration(1, 2, "nm"), Calibration.Calibration(2, 3, u"µm")]
             intensity_calibration_in = Calibration.Calibration(4, 5, "six")
@@ -117,7 +122,7 @@ class TestDM3ImportExportClass(unittest.TestCase):
             self.assertTrue(numpy.array_equal(data_in, data_out))
 
     def test_calibrations_write_read_round_trip(self):
-        s = StringIO.StringIO()
+        s = io.StringIO()
         data_in = numpy.ones((6, 4), numpy.float32)
         dimensional_calibrations_in = [Calibration.Calibration(1, 2, "nm"), Calibration.Calibration(2, 3, u"µm")]
         intensity_calibration_in = Calibration.Calibration(4, 5, "six")
@@ -131,7 +136,7 @@ class TestDM3ImportExportClass(unittest.TestCase):
         self.assertTrue(numpy.array_equal(intensity_calibration_in, intensity_calibration_out))
 
     def test_metadata_write_read_round_trip(self):
-        s = StringIO.StringIO()
+        s = io.StringIO()
         data_in = numpy.ones((6, 4), numpy.float32)
         dimensional_calibrations_in = [Calibration.Calibration(1, 2, "nm"), Calibration.Calibration(2, 3, u"µm")]
         intensity_calibration_in = Calibration.Calibration(4, 5, "six")

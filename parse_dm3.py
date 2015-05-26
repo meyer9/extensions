@@ -1,8 +1,15 @@
 import array
 import struct
-import StringIO
 import logging
 import re
+
+# conditional imports
+import sys
+if sys.version < '3':
+    import cStringIO as io
+else:
+    import io
+
 # mfm 2013-11-15 initial dm4 support
 # this should probably migrate into a class at some point.
 # No support for writing dm4 files, but shouldn't be hard -
@@ -304,7 +311,7 @@ def get_dmtype_for_name(name):
     for key, _name, sc, types in dm_simple_names:
         if _name == name:
             return key
-    for key, _name in dm_complex_names.iteritems():
+    for key, _name in iter(dm_complex_names.items()):
         if _name == name:
             return key
     return 0
@@ -526,7 +533,7 @@ def dm_read_array(f, outdata=None):
             put_into_file(f, "> L", len(outdata.tostring()) / struct.calcsize(outdata.typecode))
             if verbose:
                 print "dm_write_array2 end", dtype, len(outdata), outdata.typecode, f.tell()
-            if isinstance(f, StringIO.StringIO):
+            if isinstance(f, io.StringIO):
                 f.write(outdata.tostring())
             else:
                 outdata.tofile(f)
@@ -577,7 +584,7 @@ def dm_read_array(f, outdata=None):
                 # ret = get_from_file(f, stype)
                 if verbose:
                     print "dm_read_array2 end", dtype, alen, ret.typecode, f.tell()
-                if isinstance(f, StringIO.StringIO):
+                if isinstance(f, io.StringIO):
                     ret.fromstring(f.read(alen*struct.calcsize(ret.typecode)))
                 else:
                     ret.fromfile(f, alen)

@@ -17,7 +17,7 @@ structarray_to_np_map = {
     ('d', 'd'): np.complex128,
     ('f', 'f'): np.complex64}
 
-np_to_structarray_map = {v: k for k, v in structarray_to_np_map.iteritems()}
+np_to_structarray_map = {v: k for k, v in iter(structarray_to_np_map.items())}
 
 # we want to amp any image type to a single np array type
 # but a sinlge np array type could map to more than one dm type.
@@ -73,7 +73,7 @@ def ndarray_to_imagedatadict(nparr):
     to be inserted into a dm3 tag dictionary and written to a file.
     """
     ret = {}
-    dm_type = (k for k, v in dm_image_dtypes.iteritems() if v[1] == nparr.dtype.type).next()
+    dm_type = (k for k, v in iter(dm_image_dtypes.items()) if v[1] == nparr.dtype.type).next()
     ret["DataType"] = dm_type
     ret["PixelDepth"] = nparr.dtype.itemsize
     ret["Dimensions"] = list(nparr.shape[::-1])
@@ -94,7 +94,7 @@ def display_keys(tag, indent=None):
             logging.debug("%s %s:", indent, i)
             display_keys(v, indent + "..")
     elif isinstance(tag, types.DictType):
-        for k, v in tag.iteritems():
+        for k, v in iter(tag.items()):
             logging.debug("%s key: %s", indent, k)
             display_keys(v, indent + "..")
     elif isinstance(tag, types.BooleanType):
