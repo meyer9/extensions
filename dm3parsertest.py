@@ -17,8 +17,8 @@ else:
 
 import numpy
 
-import parse_dm3
-import dm3_image_utils
+from io_dm3 import parse_dm3
+from io_dm3 import dm3_image_utils
 
 from nion.swift.model import Calibration
 
@@ -176,7 +176,7 @@ def process_all(mode):
     for f in [x for x in os.listdir(".")
               if x.endswith(".dm3")
               if not x.endswith("out.dm3")]:
-        print "reading", f, "..."
+        print("reading", f, "...")
         data, odata = process_dm3(f, mode)
 
 if __name__ == "__main__":

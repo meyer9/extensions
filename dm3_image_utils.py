@@ -10,7 +10,7 @@
 # There is a seperate DatatType and PixelDepth stored for images different
 # from the tag file datatype. I think these are used more than the tag
 # datratypes in describing the data.
-from parse_dm3 import *
+from io_dm3.parse_dm3 import *
 import numpy as np
 
 structarray_to_np_map = {

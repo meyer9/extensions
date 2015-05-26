@@ -9,7 +9,7 @@ import gettext
 # None
 
 # local libraries
-import dm3_image_utils
+from io_dm3 import dm3_image_utils
 
 
 _ = gettext.gettext

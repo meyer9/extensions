@@ -7,8 +7,16 @@ import re
 import sys
 if sys.version < '3':
     import cStringIO as io
+    def u(x=None, y=None):
+        return unicode(x if x is not None else str(), y)
+    unicode_type = unicode
+    long_type = long
 else:
     import io
+    def u(x=None, y=None):
+        return str(x if x is not None else str(), y)
+    unicode_type = str
+    long_type = int
 
 # mfm 2013-11-15 initial dm4 support
 # this should probably migrate into a class at some point.
@@ -39,7 +47,7 @@ TAG_TYPE_ARRAY = 20
 TAG_TYPE_DATA = 21
 
 def get_from_file(f, stype):
-    #print "reading", stype, "size", struct.calcsize(stype)
+    #print("reading", stype, "size", struct.calcsize(stype))
     src = f.read(struct.calcsize(stype))
     if len(src) != struct.calcsize(stype):
         print("%s %s %s" % (stype, len(src), struct.calcsize(stype)))
@@ -101,7 +109,7 @@ def parse_dm_header(f, outdata=None):
     # the file.
     if outdata is not None:  # this means we're WRITING to the file
         if verbose:
-            print "write_dm_header start", f.tell()
+            print("write_dm_header start", f.tell())
         ver, file_size, endianness = 3, -1, 1
         put_into_file(f, "> l l l", ver, file_size, endianness)
         start = f.tell()
@@ -116,10 +124,10 @@ def parse_dm_header(f, outdata=None):
         enda, endb = 0, 0
         put_into_file(f, "> l l", enda, endb)
         if verbose:
-            print "write_dm_header end", f.tell()
+            print("write_dm_header end", f.tell())
     else:
         if verbose:
-            print "read_dm_header start", f.tell()
+            print("read_dm_header start", f.tell())
         ver = get_from_file(f, "> l")
         assert ver in [3,4], "Version must be 3 or 4, not %s" % ver
         # argh. why a global?
@@ -135,7 +143,7 @@ def parse_dm_header(f, outdata=None):
         start = f.tell()
         ret = parse_dm_tag_root(f, outdata)
         end = f.tell()
-        # print "fs", file_size, end - start, (end-start)%8
+        # print("fs", file_size, end - start, (end-start)%8)
         # mfm 2013-07-11 the file_size value is not always
         # end-start, sometimes there seems to be an extra 4 bytes,
         # other times not. Let's just ignore it for the moment
@@ -143,14 +151,14 @@ def parse_dm_header(f, outdata=None):
         enda, endb = get_from_file(f, "> l l")
         assert(enda == endb == 0)
         if verbose:
-            print "read_dm_header end", f.tell()
+            print("read_dm_header end", f.tell())
         return ret
 
 
 def parse_dm_tag_root(f, outdata=None):
     if outdata is not None:  # this means we're WRITING to the file
         if verbose:
-            print "write_dm_tag_root start", f.tell()
+            print("write_dm_tag_root start", f.tell())
         is_dict = 0 if isinstance(outdata, list) else 1
         _open, num_tags = 0, len(outdata)
         put_into_file(f, "> b b l", is_dict, _open, num_tags)
@@ -162,10 +170,10 @@ def parse_dm_tag_root(f, outdata=None):
                 assert(key is not None)
                 parse_dm_tag_entry(f, outdata[key], key)
         if verbose:
-            print "write_dm_tag_root end", f.tell()
+            print("write_dm_tag_root end", f.tell())
     else:
         if verbose:
-            print "read_dm_tag_root start", f.tell()
+            print("read_dm_tag_root start", f.tell())
         is_dict, _open, num_tags = get_from_file(f, ("> b b %c" % size_type))
         if is_dict:
             new_obj = {}
@@ -182,14 +190,14 @@ def parse_dm_tag_root(f, outdata=None):
                 assert(name is None)
                 new_obj.append(data)
         if verbose:
-            print "read_dm_tag_root end", f.tell()
+            print("read_dm_tag_root end", f.tell())
         return new_obj
 
 
 def parse_dm_tag_entry(f, outdata=None, outname=None):
     if outdata is not None:  # this means we're WRITING to the file
         if verbose:
-            print "write_dm_tag_entry start", f.tell()
+            print("write_dm_tag_entry start", f.tell())
         dtype = TAG_TYPE_ARRAY if isinstance(outdata, (dict, list)) else TAG_TYPE_DATA
         name_len = len(outname) if outname else 0
         put_into_file(f, "> b H", dtype, name_len)
@@ -201,11 +209,11 @@ def parse_dm_tag_entry(f, outdata=None, outname=None):
         else:
             parse_dm_tag_root(f, outdata)
         if verbose:
-            print "write_dm_tag_entry end", f.tell()
+            print("write_dm_tag_entry end", f.tell())
 
     else:
         if verbose:
-            print "read_dm_tag_entry start", f.tell()
+            print("read_dm_tag_entry start", f.tell())
         dtype, name_len = get_from_file(f, "> b H")
         if name_len:
             name = get_from_file(f, ">" + str(name_len) + "s").decode("latin")
@@ -228,12 +236,12 @@ def parse_dm_tag_entry(f, outdata=None, outname=None):
                         elif isinstance(arr[0], str):
                             arr = ''.join(arr)
             if verbose:
-                print "read_dm_tag_entry end", f.tell()
+                print("read_dm_tag_entry end", f.tell())
             return name, arr
         elif dtype == TAG_TYPE_ARRAY:
             result = parse_dm_tag_root(f)
             if verbose:
-                print "read_dm_tag_entry end", f.tell()
+                print("read_dm_tag_entry end", f.tell())
             return name, result
         else:
             raise Exception("Unknown data type=" + str(dtype))
@@ -253,7 +261,7 @@ def parse_dm_tag_data(f, outdata=None):
             # can we get away with a limited set that we write?
         # ie can all numbers be doubles or ints, and we have lists
         if verbose:
-            print "write_dm_tag_data start", f.tell()
+            print("write_dm_tag_data start", f.tell())
         _, data_type = get_structdmtypes_for_python_typeorobject(outdata)
         if not data_type:
             raise Exception("Unsupported type: {}".format(type(outdata)))
@@ -265,16 +273,16 @@ def parse_dm_tag_data(f, outdata=None):
         put_into_file(f, "> l", header+1)
         f.seek(0, 2)
         if verbose:
-            print "write_dm_tag_data end", f.tell()
+            print("write_dm_tag_data end", f.tell())
     else:
         if verbose:
-            print "read_dm_tag_data start", f.tell()
+            print("read_dm_tag_data start", f.tell())
         _delim, header_len, data_type = get_from_file(f, "> 4s {size} {size}".format(size=size_type))
         assert(_delim == "%%%%")
         ret, header = dm_types[data_type](f)
         assert(header + 1 == header_len)
         if verbose:
-            print "read_dm_tag_data end", f.tell()
+            print("read_dm_tag_data end", f.tell())
         return ret
 
 
@@ -290,7 +298,7 @@ dm_simple_names = [
     (3, "long", "i", [int]),
     # (3, "int", "l", [int]),
     (4, "ushort", "H", []),
-    (5, "uint", "I", [long]),
+    (5, "uint", "I", [long_type]),
     # (5, "ulong", "L", [long]),
     (6, "float", "f", []),
     (7, "double", "d", [float]),
@@ -337,7 +345,7 @@ def get_structdmtypes_for_python_typeorobject(typeorobj):
                 return sc, key
     if comparer(str):
         return None, get_dmtype_for_name('array')  # treat all strings as arrays!
-    elif comparer(unicode):
+    elif comparer(unicode_type):
         return None, get_dmtype_for_name('array')  # treat all strings as arrays!
     elif comparer(array.array):
         return None, get_dmtype_for_name('array')
@@ -377,17 +385,17 @@ def standard_dm_read(datatype_num, desc):
         """
         if outdata is not None:  # this means we're WRITING to the file
             if verbose:
-                print "dm_write start", structchar, outdata, "at", f.tell()
+                print("dm_write start", structchar, outdata, "at", f.tell())
             put_into_file(f, "<"+structchar, outdata)
             if verbose:
-                print "dm_write end", f.tell()
+                print("dm_write end", f.tell())
             return 0
         else:
             if verbose:
-                print "dm_read start", structchar, "at", f.tell()
+                print("dm_read start", structchar, "at", f.tell())
             result = get_from_file(f, "<" + structchar)
             if verbose:
-                print "dm_read end", f.tell()
+                print("dm_read end", f.tell())
             return result, 0
 
     return dm_read_x
@@ -401,17 +409,17 @@ for key, name, sc, types in dm_simple_names:
 def dm_read_bool(f, outdata=None):
     if outdata:  # this means we're WRITING to the file
         if verbose:
-            print "dm_write_bool start", f.tell()
+            print("dm_write_bool start", f.tell())
         put_into_file(f, "<b", 1 if outdata else 0)
         if verbose:
-            print "dm_write_bool end", f.tell()
+            print("dm_write_bool end", f.tell())
         return 0
     else:
         if verbose:
-            print "dm_read_bool start", f.tell()
+            print("dm_read_bool start", f.tell())
         result = get_from_file(f, "<b")
         if verbose:
-            print "dm_read_bool end", f.tell()
+            print("dm_read_bool end", f.tell())
         return result != 0, 0
 dm_types[get_dmtype_for_name('bool')] = dm_read_bool
 # string is 18:
@@ -423,23 +431,23 @@ def dm_read_string(f, outdata=None):
     header_size = 1  # just a length field
     if outdata is not None:  # this means we're WRITING to the file
         if verbose:
-            print "dm_write_string start", f.tell()
+            print("dm_write_string start", f.tell())
         outdata = outdata.encode("utf_16_le")
         slen = len(outdata)
         put_into_file(f, ">L", slen)
         put_into_file(f, ">" + str(slen) + "s", outdata)
         if verbose:
-            print "dm_write_string end", f.tell()
+            print("dm_write_string end", f.tell())
         return header_size
     else:
         assert(False)
         if verbose:
-            print "dm_read_string start", f.tell()
+            print("dm_read_string start", f.tell())
         slen = get_from_file(f, ">L")
         raws = get_from_file(f, ">" + str(slen) + "s")
         if verbose:
-            print "dm_read_string end", f.tell()
-        return unicode(raws, "utf_16_le"), header_size
+            print("dm_read_string end", f.tell())
+        return u(raws, "utf_16_le"), header_size
 
 dm_types[get_dmtype_for_name('string')] = dm_read_string
 
@@ -468,7 +476,7 @@ def dm_read_struct_types(f, outtypes=None):
 def dm_read_struct(f, outdata=None):
     if outdata is not None:  # this means we're WRITING to the file
         if verbose:
-            print "dm_write_struct start", f.tell()
+            print("dm_write_struct start", f.tell())
         start = f.tell()
         types = [get_structdmtypes_for_python_typeorobject(x)[1]
                  for x in outdata]
@@ -488,18 +496,18 @@ def dm_read_struct(f, outdata=None):
             f.seek(0, 2)  # the very end (2 is pos from end)
             assert(f.tell() == end)
         if verbose:
-            print "dm_write_struct end", f.tell()
+            print("dm_write_struct end", f.tell())
         return header
     else:
         if verbose:
-            print "dm_read_struct start", f.tell()
+            print("dm_read_struct start", f.tell())
         types, header = dm_read_struct_types(f)
         ret = []
         for t in types:
             d, h = dm_types[t](f)
             ret.append(d)
         if verbose:
-            print "dm_read_struct end", f.tell()
+            print("dm_read_struct end", f.tell())
         return tuple(ret), header
 
 dm_types[get_dmtype_for_name('struct')] = dm_read_struct
@@ -510,7 +518,7 @@ def dm_read_array(f, outdata=None):
     array_header = 2  # type, length
     if outdata is not None:  # this means we're WRITING to the file
         if verbose:
-            print "dm_write_array start", f.tell()
+            print("dm_write_array start", f.tell())
         if isinstance(outdata, structarray):
             # we write type, struct_types, length
             outdmtypes = [get_dmtype_for_structchar(s) for s in outdata.typecodes]
@@ -519,26 +527,26 @@ def dm_read_array(f, outdata=None):
             put_into_file(f, "> L", outdata.num_elements())
             outdata.to_file(f)
             if verbose:
-                print "dm_write_array1 end", f.tell()
+                print("dm_write_array1 end", f.tell())
             return struct_header + array_header
-        elif isinstance(outdata, (str, unicode, array.array)):
-            if isinstance(outdata, (str, unicode)):
+        elif isinstance(outdata, (str, unicode_type, array.array)):
+            if isinstance(outdata, (str, unicode_type)):
                 outdata = array.array('H', outdata.encode("utf_16_le"))
             assert(isinstance(outdata, array.array))
             dtype = get_dmtype_for_structchar(outdata.typecode)
             if dtype < 0:
-                print "typecode %s" % outdata.typecode
+                print("typecode %s" % outdata.typecode)
             assert dtype >= 0
             put_into_file(f, "> l", dtype)
             put_into_file(f, "> L", len(outdata.tostring()) / struct.calcsize(outdata.typecode))
             if verbose:
-                print "dm_write_array2 end", dtype, len(outdata), outdata.typecode, f.tell()
+                print("dm_write_array2 end", dtype, len(outdata), outdata.typecode, f.tell())
             if isinstance(f, io.StringIO):
                 f.write(outdata.tostring())
             else:
                 outdata.tofile(f)
             if verbose:
-                print "dm_write_array3 end", f.tell()
+                print("dm_write_array3 end", f.tell())
             return array_header
         else:
             logging.warn("Unsupported type for conversion to array:%s", outdata)
@@ -557,7 +565,7 @@ def dm_read_array(f, outdata=None):
         # But array.array only supports simple types. We need a new type, then.
         # let's make a structarray
         if verbose:
-            print "dm_read_array start", f.tell()
+            print("dm_read_array start", f.tell())
         pos = f.tell()
         dtype = get_from_file(f, "> {size}".format(size=size_type))
         if dtype == get_dmtype_for_name('struct'):
@@ -567,7 +575,7 @@ def dm_read_array(f, outdata=None):
             ret = structarray([get_structchar_for_dmtype(d) for d in types])
             ret.from_file(f, alen)
             if verbose:
-                print "dm_read_array1 end", f.tell()
+                print("dm_read_array1 end", f.tell())
             return ret, array_header + struct_header
         else:
             # mfm 2013-08-02 struct.calcsize('l') is 4 on win and 8 on Mac!
@@ -583,7 +591,7 @@ def dm_read_array(f, outdata=None):
                 # stype = "<" + str(alen) + dm_simple_names[dtype][1]
                 # ret = get_from_file(f, stype)
                 if verbose:
-                    print "dm_read_array2 end", dtype, alen, ret.typecode, f.tell()
+                    print("dm_read_array2 end", dtype, alen, ret.typecode, f.tell())
                 if isinstance(f, io.StringIO):
                     ret.fromstring(f.read(alen*struct.calcsize(ret.typecode)))
                 else:
@@ -591,7 +599,7 @@ def dm_read_array(f, outdata=None):
             if dtype == get_dmtype_for_name('ushort'):
                 ret = ret.tostring().decode("utf-16")
             if verbose:
-                print "dm_read_array3 end", f.tell()
+                print("dm_read_array3 end", f.tell())
             return ret, array_header
 
 dm_types[get_dmtype_for_name('array')] = dm_read_array
