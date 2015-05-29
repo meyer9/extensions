@@ -29,7 +29,7 @@ class ColorPhaseOperationDelegate(object):
     def get_processed_data_and_metadata(self, data_and_metadata, parameters):
         api = self.__api
         img = data_and_metadata.data
-        grad = np.zeros(img.shape+(3L,),dtype=np.uint8) # rgb format
+        grad = np.zeros(img.shape+(3,),dtype=np.uint8) # rgb format
         # grad will be returned at the end, then Swift will identify it as rgb and display it as such.
         w = img.shape[0] #w and h are much shorter to read than img.shape[0] and img.shape[1]
         h = img.shape[1]
