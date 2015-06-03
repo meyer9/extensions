@@ -13,6 +13,19 @@
 from io_dm3.parse_dm3 import *
 import numpy as np
 
+# conditional imports
+import sys
+if sys.version < '3':
+    def u(x=None):
+        return unicode(x if x is not None else str())
+    unicode_type = unicode
+    long_type = long
+else:
+    def u(x=None):
+        return str(x if x is not None else str())
+    unicode_type = str
+    long_type = int
+
 structarray_to_np_map = {
     ('d', 'd'): np.complex128,
     ('f', 'f'): np.complex64}
@@ -58,7 +71,7 @@ def imagedatadict_to_ndarray(imdict):
         im = np.frombuffer(
             arr.raw_data,
             dtype=structarray_to_np_map[t])
-    elif isinstance(arr, types.UnicodeType):
+    elif isinstance(arr, unicode_type):
         im = np.frombuffer(arr, dtype=np.uint16)
     # print "Image has dmimagetype", imdict["DataType"], "numpy type is", im.dtype
     assert dm_image_dtypes[imdict["DataType"]][1] == im.dtype
@@ -73,7 +86,7 @@ def ndarray_to_imagedatadict(nparr):
     to be inserted into a dm3 tag dictionary and written to a file.
     """
     ret = {}
-    dm_type = (k for k, v in iter(dm_image_dtypes.items()) if v[1] == nparr.dtype.type).next()
+    dm_type = next(k for k, v in iter(dm_image_dtypes.items()) if v[1] == nparr.dtype.type)
     ret["DataType"] = dm_type
     ret["PixelDepth"] = nparr.dtype.itemsize
     ret["Dimensions"] = list(nparr.shape[::-1])
@@ -107,7 +120,7 @@ def display_keys(tag, indent=None):
         logging.debug("%s float: %s", indent, tag)
     elif isinstance(tag, types.StringType):
         logging.debug("%s string: %s", indent, tag)
-    elif isinstance(tag, types.UnicodeType):
+    elif isinstance(tag, unicode_type):
         logging.debug("%s unicode: %s", indent, tag)
     else:
         logging.debug("%s %s: DATA", indent, type(tag))
@@ -120,7 +133,7 @@ def load_image(file):
     Returns a numpy ndarray of our best guess for the most important image
     in the file.
     """
-    if isinstance(file, str) or isinstance(file, unicode):
+    if isinstance(file, str) or isinstance(file, unicode_type):
         with open(file, "rb") as f:
             return load_image(f)
     dmtag = parse_dm_header(file)
@@ -167,7 +180,7 @@ def save_image(data, dimensional_calibrations, intensity_calibration, metadata, 
             dimension = dict()
             dimension['Origin'] = dimensional_calibration.offset
             dimension['Scale'] = dimensional_calibration.scale
-            dimension['Units'] = unicode(dimensional_calibration.units)
+            dimension['Units'] = u(dimensional_calibration.units)
             dimension_list.append(dimension)
     if intensity_calibration:
         brightness = data_dict.setdefault("Calibrations", dict()).setdefault("Brightness", dict())
