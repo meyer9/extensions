@@ -6,7 +6,7 @@ import re
 # conditional imports
 import sys
 if sys.version < '3':
-    import cStringIO as io
+    import StringIO as io
     def u(x=None, y=None):
         return unicode(x if x is not None else str(), y)
     unicode_type = unicode
