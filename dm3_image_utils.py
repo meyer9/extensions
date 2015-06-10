@@ -10,7 +10,7 @@
 # There is a seperate DatatType and PixelDepth stored for images different
 # from the tag file datatype. I think these are used more than the tag
 # datratypes in describing the data.
-from io_dm3.parse_dm3 import *
+from .parse_dm3 import *
 import numpy as np
 
 # conditional imports
@@ -20,11 +20,15 @@ if sys.version < '3':
         return unicode(x if x is not None else str())
     unicode_type = unicode
     long_type = long
+    def str_to_utf16_bytes(s):
+        return bytes(s)
 else:
     def u(x=None):
         return str(x if x is not None else str())
     unicode_type = str
     long_type = int
+    def str_to_utf16_bytes(s):
+        return s.encode('utf-16')
 
 structarray_to_np_map = {
     ('d', 'd'): np.complex128,
@@ -71,8 +75,6 @@ def imagedatadict_to_ndarray(imdict):
         im = np.frombuffer(
             arr.raw_data,
             dtype=structarray_to_np_map[t])
-    elif isinstance(arr, unicode_type):
-        im = np.frombuffer(arr, dtype=np.uint16)
     # print "Image has dmimagetype", imdict["DataType"], "numpy type is", im.dtype
     assert dm_image_dtypes[imdict["DataType"]][1] == im.dtype
     assert imdict['PixelDepth'] == im.dtype.itemsize
@@ -93,7 +95,7 @@ def ndarray_to_imagedatadict(nparr):
     if nparr.dtype.type in np_to_structarray_map:
         types = np_to_structarray_map[nparr.dtype.type]
         ret["Data"] = structarray(types)
-        ret["Data"].raw_data = str(nparr.data)
+        ret["Data"].raw_data = bytes(nparr.data)
     else:
         ret["Data"] = array.array(nparr.dtype.char, nparr.flatten())
     return ret
@@ -126,6 +128,25 @@ def display_keys(tag, indent=None):
         logging.debug("%s %s: DATA", indent, type(tag))
 
 
+def fix_strings(d):
+    if isinstance(d, dict):
+        r = dict()
+        for k, v in d.items():
+            if k != "Data":
+                r[k] = fix_strings(v)
+            else:
+                r[k] = v
+        return r
+    elif isinstance(d, list):
+        l = list()
+        for v in d:
+            l.append(fix_strings(v))
+        return l
+    elif isinstance(d, array.array):
+        return d.tostring().decode("utf-16")
+    else:
+        return d
+
 def load_image(file):
     """
     Loads the image from the file-like object or string file.
@@ -137,6 +158,7 @@ def load_image(file):
         with open(file, "rb") as f:
             return load_image(f)
     dmtag = parse_dm_header(file)
+    dmtag = fix_strings(dmtag)
     #display_keys(dmtag)
     img_index = -1
     image_tags = dmtag['ImageList'][img_index]

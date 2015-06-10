@@ -11,14 +11,16 @@ import unittest
 
 import sys
 if sys.version < '3':
+    from io import BytesIO
     import cStringIO as io
 else:
+    from io import BytesIO
     import io
 
 import numpy
 
-from io_dm3 import parse_dm3
-from io_dm3 import dm3_image_utils
+from PlugIns.io_dm3 import parse_dm3
+from PlugIns.io_dm3 import dm3_image_utils
 
 from nion.swift.model import Calibration
 
@@ -27,7 +29,7 @@ class TestDM3ImportExportClass(unittest.TestCase):
 
     def check_write_then_read_matches(self, data, func, _assert=True):
         # we confirm that reading a written element returns the same value
-        s = io.StringIO()
+        s = BytesIO()
         header = func(s, outdata=data)
         s.seek(0)
         if header is not None:
@@ -39,7 +41,7 @@ class TestDM3ImportExportClass(unittest.TestCase):
         return r
 
     def test_dm_read_struct_types(self):
-        s = io.StringIO()
+        s = BytesIO()
         types = [2, 2, 2]
         parse_dm3.dm_read_struct_types(s, outtypes=types)
         s.seek(0)
@@ -54,7 +56,7 @@ class TestDM3ImportExportClass(unittest.TestCase):
     def test_read_string(self):
         data = "MyString"
         ret = self.check_write_then_read_matches(data, parse_dm3.dm_types[parse_dm3.get_dmtype_for_name('array')], False)
-        self.assertEqual(data, ret)
+        self.assertEqual(data, dm3_image_utils.fix_strings(ret))
 
     def test_array_simple(self):
         dat = array.array('b', [0]*256)
@@ -62,7 +64,7 @@ class TestDM3ImportExportClass(unittest.TestCase):
 
     def test_array_struct(self):
         dat = parse_dm3.structarray(['h', 'h', 'h'])
-        dat.raw_data = '0x00'*(3*20)
+        dat.raw_data = array.array('b', [0, 0] * 3 * 8)  # two bytes x 3 'h's x 8 elements
         self.check_write_then_read_matches(dat, parse_dm3.dm_types[parse_dm3.get_dmtype_for_name('array')])
 
     def test_tagdata(self):
@@ -97,10 +99,13 @@ class TestDM3ImportExportClass(unittest.TestCase):
 
     def test_image(self):
         im = array.array('h')
-        im.fromstring(numpy.random.random(16))
+        if sys.version < '3':
+            im.fromstring(numpy.random.bytes(64))
+        else:
+            im.frombytes(numpy.random.bytes(64))
         im_tag = {"Data": im,
                   "Dimensions": [23, 45]}
-        s = io.StringIO()
+        s = BytesIO()
         parse_dm3.parse_dm_tag_root(s, outdata=im_tag)
         s.seek(0)
         ret = parse_dm3.parse_dm_tag_root(s)
@@ -111,7 +116,7 @@ class TestDM3ImportExportClass(unittest.TestCase):
     def test_data_write_read_round_trip(self):
         dtypes = (numpy.float32, numpy.float64, numpy.complex64, numpy.complex128, numpy.int16, numpy.uint16, numpy.int32, numpy.uint32)
         for dtype in dtypes:
-            s = io.StringIO()
+            s = BytesIO()
             data_in = numpy.ones((6, 4), dtype)
             dimensional_calibrations_in = [Calibration.Calibration(1, 2, "nm"), Calibration.Calibration(2, 3, u"µm")]
             intensity_calibration_in = Calibration.Calibration(4, 5, "six")
@@ -122,7 +127,7 @@ class TestDM3ImportExportClass(unittest.TestCase):
             self.assertTrue(numpy.array_equal(data_in, data_out))
 
     def test_calibrations_write_read_round_trip(self):
-        s = io.StringIO()
+        s = BytesIO()
         data_in = numpy.ones((6, 4), numpy.float32)
         dimensional_calibrations_in = [Calibration.Calibration(1, 2, "nm"), Calibration.Calibration(2, 3, u"µm")]
         intensity_calibration_in = Calibration.Calibration(4, 5, "six")
@@ -136,7 +141,7 @@ class TestDM3ImportExportClass(unittest.TestCase):
         self.assertTrue(numpy.array_equal(intensity_calibration_in, intensity_calibration_out))
 
     def test_metadata_write_read_round_trip(self):
-        s = io.StringIO()
+        s = BytesIO()
         data_in = numpy.ones((6, 4), numpy.float32)
         dimensional_calibrations_in = [Calibration.Calibration(1, 2, "nm"), Calibration.Calibration(2, 3, u"µm")]
         intensity_calibration_in = Calibration.Calibration(4, 5, "six")
@@ -146,6 +151,19 @@ class TestDM3ImportExportClass(unittest.TestCase):
         data_out, dimensional_calibrations_out, intensity_calibration_out, title_out, metadata_out = dm3_image_utils.load_image(s)
         imported_metadata = metadata_out.get("imported_properties", dict())
         self.assertTrue(numpy.array_equal(metadata_in, imported_metadata))
+
+    def test_metadata_difficult_types_write_read_round_trip(self):
+        s = BytesIO()
+        data_in = numpy.ones((6, 4), numpy.float32)
+        dimensional_calibrations_in = [Calibration.Calibration(1, 2, "nm"), Calibration.Calibration(2, 3, u"µm")]
+        intensity_calibration_in = Calibration.Calibration(4, 5, "six")
+        metadata_in = {"abc": None, "": "", "one": [], "two": {}, "three": [1, None, 2]}
+        dm3_image_utils.save_image(data_in, dimensional_calibrations_in, intensity_calibration_in, metadata_in, s)
+        s.seek(0)
+        data_out, dimensional_calibrations_out, intensity_calibration_out, title_out, metadata_out = dm3_image_utils.load_image(s)
+        imported_metadata = metadata_out.get("imported_properties", dict())
+        metadata_expected = {"one": [], "two": {}, "three": [1, 2]}
+        self.assertTrue(numpy.array_equal(metadata_expected, imported_metadata))
 
 # some functions for processing multiple files.
 # useful for testing reading and writing a large number of files.

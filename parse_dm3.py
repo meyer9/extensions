@@ -11,7 +11,8 @@ if sys.version < '3':
         return unicode(x if x is not None else str(), y)
     unicode_type = unicode
     long_type = long
-    def str_to_bytes(s):
+    file_type = file
+    def str_to_iso8859_bytes(s):
         return bytes(s)
 else:
     import io
@@ -19,7 +20,8 @@ else:
         return str(x if x is not None else str(), y)
     unicode_type = str
     long_type = int
-    def str_to_bytes(s):
+    file_type = io.IOBase
+    def str_to_iso8859_bytes(s):
         return bytes(s, 'ISO-8859-1')
 
 # mfm 2013-11-15 initial dm4 support
@@ -95,10 +97,10 @@ class structarray(object):
         return len(self.raw_data) // b
 
     def from_file(self, f, num_elements):
-        self.raw_data = f.read(self.bytelen(num_elements))
+        self.raw_data = array.array('b', f.read(self.bytelen(num_elements)))
 
     def to_file(self, f):
-        f.write(self.raw_data)
+        f.write(bytearray(self.raw_data))
 
 
 def parse_dm_header(f, outdata=None):
@@ -161,18 +163,25 @@ def parse_dm_header(f, outdata=None):
 
 def parse_dm_tag_root(f, outdata=None):
     if outdata is not None:  # this means we're WRITING to the file
-        if verbose:
-            print("write_dm_tag_root start", f.tell())
         is_dict = 0 if isinstance(outdata, list) else 1
-        _open, num_tags = 0, len(outdata)
+        _open = 0
+        if is_dict:
+            num_tags = sum(1 if k is not None and len(k) > 0 and v is not None else 0 for k, v in outdata.items())
+        else:
+            num_tags = sum(1 if v is not None else 0 for v in outdata)
+        if verbose:
+            print("write_dm_tag_root start {} {} {}".format(f.tell(), is_dict, num_tags))
         put_into_file(f, "> b b l", is_dict, _open, num_tags)
         if not is_dict:
             for subdata in outdata:
-                parse_dm_tag_entry(f, subdata, None)
+                if subdata is not None:
+                    parse_dm_tag_entry(f, subdata, None)
         else:
             for key in outdata:
-                assert(key is not None)
-                parse_dm_tag_entry(f, outdata[key], key)
+                if key is not None and len(key) > 0:  # don't write out invalid dict's
+                    value = outdata[key]
+                    if value is not None:
+                        parse_dm_tag_entry(f, value, key)
         if verbose:
             print("write_dm_tag_root end", f.tell())
     else:
@@ -206,7 +215,7 @@ def parse_dm_tag_entry(f, outdata=None, outname=None):
         name_len = len(outname) if outname else 0
         put_into_file(f, "> b H", dtype, name_len)
         if outname:
-            put_into_file(f, ">" + str(name_len) + "s", str_to_bytes(outname))
+            put_into_file(f, ">" + str(name_len) + "s", str_to_iso8859_bytes(outname))
 
         if dtype == TAG_TYPE_DATA:
             parse_dm_tag_data(f, outdata)
@@ -270,7 +279,7 @@ def parse_dm_tag_data(f, outdata=None):
         if not data_type:
             raise Exception("Unsupported type: {}".format(type(outdata)))
         _delim = "%%%%"
-        put_into_file(f, "> 4s l l", str_to_bytes(_delim), 0, data_type)
+        put_into_file(f, "> 4s l l", str_to_iso8859_bytes(_delim), 0, data_type)
         pos = f.tell()
         header = dm_types[data_type](f, outdata)
         f.seek(pos-8)  # where our header_len starts
@@ -282,7 +291,7 @@ def parse_dm_tag_data(f, outdata=None):
         if verbose:
             print("read_dm_tag_data start", f.tell())
         _delim, header_len, data_type = get_from_file(f, "> 4s {size} {size}".format(size=size_type))
-        assert(_delim == str_to_bytes("%%%%"))
+        assert(_delim == str_to_iso8859_bytes("%%%%"))
         ret, header = dm_types[data_type](f)
         assert(header + 1 == header_len)
         if verbose:
@@ -439,7 +448,7 @@ def dm_read_string(f, outdata=None):
         outdata = outdata.encode("utf_16_le")
         slen = len(outdata)
         put_into_file(f, ">L", slen)
-        put_into_file(f, ">" + str(slen) + "s", str_to_bytes(outdata))
+        put_into_file(f, ">" + str(slen) + "s", str_to_iso8859_bytes(outdata))
         if verbose:
             print("dm_write_string end", f.tell())
         return header_size
@@ -545,7 +554,7 @@ def dm_read_array(f, outdata=None):
             put_into_file(f, "> L", int(len(outdata.tostring()) / struct.calcsize(outdata.typecode)))
             if verbose:
                 print("dm_write_array2 end", dtype, len(outdata), outdata.typecode, f.tell())
-            if isinstance(f, file):
+            if isinstance(f, file_type):
                 outdata.tofile(f)
             else:
                 f.write(outdata.tostring())
@@ -596,12 +605,12 @@ def dm_read_array(f, outdata=None):
                 # ret = get_from_file(f, stype)
                 if verbose:
                     print("dm_read_array2 end", dtype, alen, ret.typecode, f.tell())
-                if isinstance(f, file):
+                if isinstance(f, file_type):
                     ret.fromfile(f, alen)
                 else:
                     ret.fromstring(f.read(alen*struct.calcsize(ret.typecode)))
-            if dtype == get_dmtype_for_name('ushort'):
-                ret = ret.tostring().decode("utf-16")
+            # if dtype == get_dmtype_for_name('ushort'):
+            #     ret = ret.tostring().decode("utf-16")
             if verbose:
                 print("dm_read_array3 end", f.tell())
             return ret, array_header
