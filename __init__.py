@@ -38,7 +38,7 @@ class DM3IODelegate(object):
         return self.__api.create_data_and_metadata_from_data(data, dimensional_calibrations=dimensional_calibrations, metadata=metadata)
 
     def can_write_data_and_metadata(self, data_and_metadata, extension):
-        return extension == "dm3" and data_and_metadata.is_data_2d
+        return extension == "dm3"
 
     def write_data_and_metadata(self, data_and_metadata, file_path, extension):
         data = data_and_metadata.data

@@ -115,30 +115,36 @@ class TestDM3ImportExportClass(unittest.TestCase):
 
     def test_data_write_read_round_trip(self):
         dtypes = (numpy.float32, numpy.float64, numpy.complex64, numpy.complex128, numpy.int16, numpy.uint16, numpy.int32, numpy.uint32)
+        shapes = ((6, 4), (6, ), (6, 4, 2))
         for dtype in dtypes:
-            s = BytesIO()
-            data_in = numpy.ones((6, 4), dtype)
-            dimensional_calibrations_in = [Calibration.Calibration(1, 2, "nm"), Calibration.Calibration(2, 3, u"µm")]
-            intensity_calibration_in = Calibration.Calibration(4, 5, "six")
-            metadata_in = dict()
-            dm3_image_utils.save_image(data_in, dimensional_calibrations_in, intensity_calibration_in, metadata_in, s)
-            s.seek(0)
-            data_out, _, _, _, _ = dm3_image_utils.load_image(s)
-            self.assertTrue(numpy.array_equal(data_in, data_out))
+            for shape in shapes:
+                s = BytesIO()
+                data_in = numpy.ones(shape, dtype)
+                dimensional_calibrations_in = list()
+                for index, dimension in enumerate(shape):
+                    dimensional_calibrations_in.append(Calibration.Calibration(1.0 + 0.1 * index, 2.0 + 0.2 * index, "µ" + "n" * index))
+                intensity_calibration_in = Calibration.Calibration(4, 5, "six")
+                metadata_in = dict()
+                dm3_image_utils.save_image(data_in, dimensional_calibrations_in, intensity_calibration_in, metadata_in, s)
+                s.seek(0)
+                data_out, dimensional_calibrations_out, _, _, _ = dm3_image_utils.load_image(s)
+                self.assertTrue(numpy.array_equal(data_in, data_out))
+                dimensional_calibrations_out = [Calibration.Calibration(*d) for d in dimensional_calibrations_out]
+                self.assertEqual(dimensional_calibrations_in, dimensional_calibrations_out)
 
     def test_calibrations_write_read_round_trip(self):
         s = BytesIO()
         data_in = numpy.ones((6, 4), numpy.float32)
-        dimensional_calibrations_in = [Calibration.Calibration(1, 2, "nm"), Calibration.Calibration(2, 3, u"µm")]
-        intensity_calibration_in = Calibration.Calibration(4, 5, "six")
+        dimensional_calibrations_in = [Calibration.Calibration(1.1, 2.1, "nm"), Calibration.Calibration(2, 3, u"µm")]
+        intensity_calibration_in = Calibration.Calibration(4.4, 5.5, "six")
         metadata_in = dict()
         dm3_image_utils.save_image(data_in, dimensional_calibrations_in, intensity_calibration_in, metadata_in, s)
         s.seek(0)
         data_out, dimensional_calibrations_out, intensity_calibration_out, title_out, metadata_out = dm3_image_utils.load_image(s)
         dimensional_calibrations_out = [Calibration.Calibration(*d) for d in dimensional_calibrations_out]
-        self.assertTrue(numpy.array_equal(dimensional_calibrations_in, dimensional_calibrations_out))
+        self.assertEqual(dimensional_calibrations_in, dimensional_calibrations_out)
         intensity_calibration_out = Calibration.Calibration(*intensity_calibration_out)
-        self.assertTrue(numpy.array_equal(intensity_calibration_in, intensity_calibration_out))
+        self.assertEqual(intensity_calibration_in, intensity_calibration_out)
 
     def test_metadata_write_read_round_trip(self):
         s = BytesIO()
@@ -150,7 +156,7 @@ class TestDM3ImportExportClass(unittest.TestCase):
         s.seek(0)
         data_out, dimensional_calibrations_out, intensity_calibration_out, title_out, metadata_out = dm3_image_utils.load_image(s)
         imported_metadata = metadata_out.get("imported_properties", dict())
-        self.assertTrue(numpy.array_equal(metadata_in, imported_metadata))
+        self.assertEqual(metadata_in, imported_metadata)
 
     def test_metadata_difficult_types_write_read_round_trip(self):
         s = BytesIO()
@@ -163,7 +169,7 @@ class TestDM3ImportExportClass(unittest.TestCase):
         data_out, dimensional_calibrations_out, intensity_calibration_out, title_out, metadata_out = dm3_image_utils.load_image(s)
         imported_metadata = metadata_out.get("imported_properties", dict())
         metadata_expected = {"one": [], "two": {}, "three": [1, 2]}
-        self.assertTrue(numpy.array_equal(metadata_expected, imported_metadata))
+        self.assertEqual(metadata_expected, imported_metadata)
 
 # some functions for processing multiple files.
 # useful for testing reading and writing a large number of files.
