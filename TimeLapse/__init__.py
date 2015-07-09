@@ -1,1 +1,1 @@
-import TimeLapse
+from . import TimeLapse
