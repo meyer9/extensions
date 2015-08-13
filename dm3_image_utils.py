@@ -10,8 +10,11 @@
 # There is a seperate DatatType and PixelDepth stored for images different
 # from the tag file datatype. I think these are used more than the tag
 # datratypes in describing the data.
-from .parse_dm3 import *
+# from .parse_dm3 import *
+import logging
 import numpy as np
+
+from . import parse_dm3
 
 # conditional imports
 import sys
@@ -68,9 +71,9 @@ def imagedatadict_to_ndarray(imdict):
     """
     arr = imdict['Data']
     im = None
-    if isinstance(arr, array.array):
+    if isinstance(arr, parse_dm3.array.array):
         im = np.asarray(arr, dtype=arr.typecode)
-    elif isinstance(arr, structarray):
+    elif isinstance(arr, parse_dm3.structarray):
         t = tuple(arr.typecodes)
         im = np.frombuffer(
             arr.raw_data,
@@ -94,10 +97,10 @@ def ndarray_to_imagedatadict(nparr):
     ret["Dimensions"] = list(nparr.shape[::-1])
     if nparr.dtype.type in np_to_structarray_map:
         types = np_to_structarray_map[nparr.dtype.type]
-        ret["Data"] = structarray(types)
+        ret["Data"] = parse_dm3.structarray(types)
         ret["Data"].raw_data = bytes(nparr.data)
     else:
-        ret["Data"] = array.array(nparr.dtype.char, nparr.flatten())
+        ret["Data"] = parse_dm3.array.array(nparr.dtype.char, nparr.flatten())
     return ret
 
 
@@ -142,8 +145,11 @@ def fix_strings(d):
         for v in d:
             l.append(fix_strings(v))
         return l
-    elif isinstance(d, array.array):
-        return d.tostring().decode("utf-16")
+    elif isinstance(d, parse_dm3.array.array):
+        if d.typecode == 'H':
+            return d.tostring().decode("utf-16")
+        else:
+            return d.tolist()
     else:
         return d
 
@@ -157,7 +163,7 @@ def load_image(file):
     if isinstance(file, str) or isinstance(file, unicode_type):
         with open(file, "rb") as f:
             return load_image(f)
-    dmtag = parse_dm_header(file)
+    dmtag = parse_dm3.parse_dm_header(file)
     dmtag = fix_strings(dmtag)
     #display_keys(dmtag)
     img_index = -1
@@ -219,7 +225,7 @@ def save_image(data, dimensional_calibrations, intensity_calibration, metadata, 
     ret["Image Behavior"] = {"ViewDisplayID": 8}
     ret["ImageList"][0]["ImageTags"] = metadata
     ret["InImageMode"] = 1
-    parse_dm_header(file, ret)
+    parse_dm3.parse_dm_header(file, ret)
 
 
 # logging.debug(image_tags['ImageData']['Calibrations'])
