@@ -81,7 +81,11 @@ def imagedatadict_to_ndarray(imdict):
     # print "Image has dmimagetype", imdict["DataType"], "numpy type is", im.dtype
     assert dm_image_dtypes[imdict["DataType"]][1] == im.dtype
     assert imdict['PixelDepth'] == im.dtype.itemsize
-    return im.reshape(imdict['Dimensions'][::-1])
+    im = im.reshape(imdict['Dimensions'][::-1])
+    if imdict["DataType"] == 23:  # RGB
+        im = im.view(np.uint8).reshape(im.shape + (-1, ))[..., :-1]  # strip A
+        # NOTE: RGB -> BGR would be [:, :, ::-1]
+    return im
 
 
 def ndarray_to_imagedatadict(nparr):
@@ -91,16 +95,34 @@ def ndarray_to_imagedatadict(nparr):
     to be inserted into a dm3 tag dictionary and written to a file.
     """
     ret = {}
-    dm_type = next(k for k, v in iter(dm_image_dtypes.items()) if v[1] == nparr.dtype.type)
-    ret["DataType"] = dm_type
-    ret["PixelDepth"] = nparr.dtype.itemsize
-    ret["Dimensions"] = list(nparr.shape[::-1])
-    if nparr.dtype.type in np_to_structarray_map:
-        types = np_to_structarray_map[nparr.dtype.type]
-        ret["Data"] = parse_dm3.structarray(types)
-        ret["Data"].raw_data = bytes(nparr.data)
+    dm_type = None
+    for k, v in iter(dm_image_dtypes.items()):
+        if v[1] == nparr.dtype.type:
+            dm_type = k
+            break
+    if dm_type is None and nparr.dtype == np.uint8 and nparr.shape[-1] in (3, 4):
+        ret["DataType"] = 23
+        ret["PixelDepth"] = 4
+        if nparr.shape[2] == 4:
+            rgb_view = nparr.view(np.int32).reshape(nparr.shape[:-1])  # squash the color into uint32
+        else:
+            assert nparr.shape[2] == 3
+            rgba_image = np.empty(nparr.shape[:-1] + (4,), np.uint8)
+            rgba_image[:,:,0:3] = nparr
+            rgba_image[:,:,3] = 255
+            rgb_view = rgba_image.view(np.int32).reshape(rgba_image.shape[:-1])  # squash the color into uint32
+        ret["Dimensions"] = list(rgb_view.shape[::-1])
+        ret["Data"] = parse_dm3.array.array(rgb_view.dtype.char, rgb_view.flatten())
     else:
-        ret["Data"] = parse_dm3.array.array(nparr.dtype.char, nparr.flatten())
+        ret["DataType"] = dm_type
+        ret["PixelDepth"] = nparr.dtype.itemsize
+        ret["Dimensions"] = list(nparr.shape[::-1])
+        if nparr.dtype.type in np_to_structarray_map:
+            types = np_to_structarray_map[nparr.dtype.type]
+            ret["Data"] = parse_dm3.structarray(types)
+            ret["Data"].raw_data = bytes(nparr.data)
+        else:
+            ret["Data"] = parse_dm3.array.array(nparr.dtype.char, nparr.flatten())
     return ret
 
 

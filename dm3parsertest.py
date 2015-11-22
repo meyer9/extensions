@@ -132,6 +132,19 @@ class TestDM3ImportExportClass(unittest.TestCase):
                 dimensional_calibrations_out = [Calibration.Calibration(*d) for d in dimensional_calibrations_out]
                 self.assertEqual(dimensional_calibrations_in, dimensional_calibrations_out)
 
+    def test_rgb_data_write_read_round_trip(self):
+        s = BytesIO()
+        data_in = (numpy.random.randn(6, 4, 3) * 255).astype(numpy.uint8)
+        dimensional_calibrations_in = [Calibration.Calibration(1, 2, "nm"), Calibration.Calibration(2, 3, u"µm")]
+        intensity_calibration_in = Calibration.Calibration(4, 5, "six")
+        metadata_in = {"abc": None, "": "", "one": [], "two": {}, "three": [1, None, 2]}
+        dm3_image_utils.save_image(data_in, dimensional_calibrations_in, intensity_calibration_in, metadata_in, s)
+        s.seek(0)
+        data_out, dimensional_calibrations_out, intensity_calibration_out, title_out, metadata_out = dm3_image_utils.load_image(s)
+        self.assertTrue(numpy.array_equal(data_in, data_out))
+        # s = "/Users/cmeyer/Desktop/EELS_CL.dm3"
+        # data_out, dimensional_calibrations_out, intensity_calibration_out, title_out, metadata_out = dm3_image_utils.load_image(s)
+
     def test_calibrations_write_read_round_trip(self):
         s = BytesIO()
         data_in = numpy.ones((6, 4), numpy.float32)
