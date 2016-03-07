@@ -7,9 +7,9 @@ import cv2.cv as cv
 import numpy
 
 # local libraries
+from nion.data import Image
 from nion.swift import Application
 from nion.swift.Decorators import relative_file
-from nion.swift.model import Image
 from nion.swift.model import Operation
 
 _ = gettext.gettext  # for translation
