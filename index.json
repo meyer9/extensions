@@ -1,0 +1,53 @@
+{
+  "packages": [
+    {
+       "name": "ColorPhase",
+       "version": "1.0.0",
+       "author": "Zeno Dellby",
+       "description": "Does something with color.",
+       "repository": "meyer9/extensions",
+       "location": "ColorPhase"
+    },
+    {
+      "name": "DM I/O",
+      "version": "1.0.0",
+      "author": "Nion",
+      "description": "Support for DM3 and DM4 I/O.",
+      "repository": "meyer9/extensions",
+      "location": "DM_IO"
+    },
+    {
+      "name": "Double Gaussian Filter",
+      "version": "1.0.0",
+      "author": "Nion",
+      "description": "Implements a double gaussian filter.",
+      "repository": "meyer9/extensions",
+      "location": "DoubleGaussianFilter"
+    },
+    {
+      "name": "TIFF I/O",
+      "version": "1.0.0",
+      "author": "Nion",
+      "description": "Enables import/export of imagej compatible tif files.",
+      "repository": "meyer9/extensions",
+      "location": "TIFF_IO"
+    },
+    {
+      "name": "TimeLapse",
+      "version": "1.0.0",
+      "author": "Nion",
+      "description": "Implements a time-lapse feature.",
+      "repository": "meyer9/extensions",
+      "location": "TimeLapse"
+    },
+    {
+      "name": "VideoCapture",
+      "version": "1.0.0",
+      "author": "Nion",
+      "description": "Support for a webcamera source",
+      "repository": "meyer9/extensions",
+      "location": "VideoCapture"
+    }
+  ],
+  "last-updated": 1490837121
+}

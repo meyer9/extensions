@@ -1,0 +1,8 @@
+{
+  "name": "TIFF I/O",
+  "version": "1.0.0",
+  "author": "Nion",
+  "description": "Enables import/export of imagej compatible tif files.",
+  "repository": "meyer9/extensions",
+  "location": "TIFF_IO"
+}

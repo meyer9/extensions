@@ -1,0 +1,8 @@
+{
+  "name": "TimeLapse",
+  "version": "1.0.0",
+  "author": "Nion",
+  "description": "Implements a time-lapse feature.",
+  "repository": "meyer9/extensions",
+  "location": "TimeLapse"
+}

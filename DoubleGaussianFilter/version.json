@@ -1,0 +1,8 @@
+{
+  "name": "Double Gaussian Filter",
+  "version": "1.0.0",
+  "author": "Nion",
+  "description": "Implements a double gaussian filter.",
+  "repository": "meyer9/extensions",
+  "location": "DoubleGaussianFilter"
+}

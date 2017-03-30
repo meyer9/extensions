@@ -1,0 +1,8 @@
+{
+  "name": "VideoCapture",
+  "version": "1.0.0",
+  "author": "Nion",
+  "description": "Support for a webcamera source",
+  "repository": "meyer9/extensions",
+  "location": "VideoCapture"
+}

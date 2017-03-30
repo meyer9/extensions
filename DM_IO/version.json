@@ -1,0 +1,7 @@
+{
+  "name": "DM I/O",
+  "version": "1.0.0",
+  "description": "Support for DM3 and DM4 I/O.",
+  "repository": "meyer9/extensions",
+  "location": "DM_IO"
+}
